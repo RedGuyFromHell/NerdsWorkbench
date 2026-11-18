@@ -8,6 +8,7 @@ import {
   hitTest,
   layerBox,
   pxPerMm,
+  roundToHundredths,
   safeMarginMm,
   toLocal,
   type BoxSource,
@@ -243,5 +244,12 @@ describe("hitTest", () => {
 
   it("is null for no layers", () => {
     expect(hitTest([], [0, 0], wideBox)).toBeNull();
+  });
+});
+
+describe("roundToHundredths", () => {
+  it("rounds to 2 decimals", () => {
+    expect(roundToHundredths(1.236)).toBe(1.24);
+    expect(roundToHundredths(-0.004)).toBe(-0);
   });
 });

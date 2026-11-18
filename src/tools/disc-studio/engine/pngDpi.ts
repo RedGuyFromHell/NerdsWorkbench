@@ -1,5 +1,5 @@
 // Writes the print resolution into a PNG (a pHYs chunk) so print apps read the right size.
-// Mirrors crc32 and pngWithDpi in disc-studio.html (lines 459-473); the parity test of S2.2 is the final judge.
+// Mirrors crc32 and pngWithDpi in disc-studio.html (lines 459-473); the parity test in tests/disc-parity is the final judge.
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 const IHDR_TYPE = [0x49, 0x48, 0x44, 0x52]; // "IHDR"

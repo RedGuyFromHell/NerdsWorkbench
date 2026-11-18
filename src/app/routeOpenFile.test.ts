@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { routeOpenFile, toolFieldOf } from "./routeOpenFile";
+import { isToolId, routeOpenFile, toolFieldOf } from "./routeOpenFile";
+
+describe("isToolId", () => {
+  it("accepts the id of a tool in the registry", () => {
+    expect(isToolId("disc-studio")).toBe(true);
+    expect(isToolId("voucher")).toBe(true);
+  });
+
+  it("refuses any other value", () => {
+    expect(isToolId("nope")).toBe(false);
+    expect(isToolId("")).toBe(false);
+    expect(isToolId(7)).toBe(false);
+    expect(isToolId(undefined)).toBe(false);
+  });
+});
 
 describe("toolFieldOf", () => {
   it("reads the top-level tool field of a project file", () => {

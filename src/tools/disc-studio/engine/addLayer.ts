@@ -2,6 +2,7 @@
 // warning, and which dropped files are images. Mirrors addText, addImage and addFiles of
 // disc-studio.html (lines 432-456). No canvas and no files are touched here.
 import { coverWidth } from "./layerOps";
+import { DEFAULT_TEXT_COLOUR, DEFAULT_TEXT_OUTLINE_COLOUR } from "./colours";
 import { pxPerMm, type Box } from "./geometry";
 import type { DiscSettings, ImageLayer, TextLayer } from "./project";
 
@@ -16,7 +17,6 @@ export const TEXT_FONTS = [
   "Times New Roman",
 ] as const;
 
-export const DEFAULT_TINT_COLOUR = "#111111"; // the recolour colour until the user picks one
 const MAX_LAYER_NAME_LENGTH = 30;
 const LOW_DPI_TOLERANCE = 0.95; // the image may fall 5% short of the pixels the print needs
 
@@ -32,8 +32,8 @@ export function newTextLayer(id: number, settings: DiscSettings): TextLayer {
     font: "Cinzel",
     size: 6,
     spacing: 0.4,
-    color: "#1a1a1a",
-    stroke: "#ffffff",
+    color: DEFAULT_TEXT_COLOUR,
+    stroke: DEFAULT_TEXT_OUTLINE_COLOUR,
     strokeW: 0,
     bold: true,
     italic: false,

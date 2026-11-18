@@ -1,12 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  brushAfterWheel,
-  dragPosition,
-  pointerToMm,
-  roundToHundredths,
-  wheelDirection,
-  wheelEdit,
-} from "./pointer";
+import { brushAfterWheel, dragPosition, pointerToMm, wheelDirection, wheelEdit } from "./pointer";
 import type { ImageLayer, TextLayer } from "./project";
 
 const imageLayer: ImageLayer = {
@@ -77,13 +70,6 @@ describe("wheelDirection", () => {
   it("is up (1) when the wheel turns away from the user, down (-1) otherwise", () => {
     expect(wheelDirection(-100)).toBe(1);
     expect(wheelDirection(100)).toBe(-1);
-  });
-});
-
-describe("roundToHundredths", () => {
-  it("rounds to 2 decimals", () => {
-    expect(roundToHundredths(1.236)).toBe(1.24);
-    expect(roundToHundredths(-0.004)).toBe(-0);
   });
 });
 

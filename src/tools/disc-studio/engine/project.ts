@@ -1,7 +1,8 @@
 // The Disc Studio project: its types, the settings defaults, and reading and writing the file.
 // Field names mirror disc-studio.html (lines 119-123, 336-342, 440-447, 480-496) so a file saved by
-// the HTML loads unchanged; S2.2's parity test is the final judge.
+// the HTML loads unchanged; the parity test in tests/disc-parity is the final judge.
 import { z } from "zod";
+import { DEFAULT_BACKGROUND_COLOUR, DEFAULT_PLA_COLOUR } from "./colours";
 
 export const TOOL_ID = "disc-studio";
 export const PROJECT_VERSION = 1;
@@ -63,8 +64,8 @@ const settingsSchema = z.object({
   curve: z.number().default(12),
   guides: z.boolean().default(true),
   zones: z.boolean().default(true),
-  pla: z.string().default("#f4f2ec"),
-  bg: z.string().default("#8a8a8a"),
+  pla: z.string().default(DEFAULT_PLA_COLOUR),
+  bg: z.string().default(DEFAULT_BACKGROUND_COLOUR),
   name: z.string().default("disc-design"),
 });
 

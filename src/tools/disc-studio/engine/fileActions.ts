@@ -4,6 +4,7 @@
 import {
   fileNameOf,
   mimeTypeOf,
+  PROJECT_EXTENSION,
   pickOpenFile,
   pickOpenFiles,
   pickSaveFile,
@@ -19,7 +20,7 @@ import { parseProject, serializeProject } from "./project";
 
 const IMAGE_FILTER: FileFilter = {
   name: "Images",
-  extensions: ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"],
+  extensions: ["png", "jpg", "jpeg", "gif", "webp", "avif", "bmp", "svg"],
 };
 // WHY: an old project saved by the HTML ends in .disc.json; the dialog filter sees only "json".
 const OPEN_PROJECT_FILTER: FileFilter = {
@@ -28,8 +29,6 @@ const OPEN_PROJECT_FILTER: FileFilter = {
 };
 const SAVE_PROJECT_FILTER: FileFilter = { name: "Disc Studio project", extensions: ["nerd"] };
 const PNG_FILTER: FileFilter = { name: "PNG image", extensions: ["png"] };
-
-export const PROJECT_EXTENSION = ".nerd";
 
 /** Runs the action; any error it throws is shown through ui.error. */
 async function guarded(ui: FileUi, action: () => Promise<void>): Promise<void> {
@@ -43,7 +42,7 @@ async function guarded(ui: FileUi, action: () => Promise<void>): Promise<void> {
 async function fileAt(path: string): Promise<File> {
   const bytes = await readFileBytes(path);
   const name = fileNameOf(path);
-  return new File([bytes as BlobPart], name, { type: mimeTypeOf(name) });
+  return new File([new Uint8Array(bytes)], name, { type: mimeTypeOf(name) });
 }
 
 // #region Images and mask
@@ -133,7 +132,7 @@ export async function exportPngAt(
   if (kind === "print") {
     png = canvasToPng(discDocument.renderer.compose());
   } else {
-    discDocument.renderer.draw(false);
+    discDocument.renderer.draw({ withSelection: false });
     png = canvasToPng(discDocument.view);
     discDocument.requestDraw(); // puts the selection box and brush outline back
   }

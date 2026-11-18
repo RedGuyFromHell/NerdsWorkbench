@@ -21,7 +21,7 @@ async function openFixture(fixtureName: string, canvas: HTMLCanvasElement): Prom
   discDocument.tool = tool;
   discDocument.hover = hover;
   discDocument.brushMm = brushMm;
-  discDocument.renderer.draw(withSelection);
+  discDocument.renderer.draw({ withSelection });
   return discDocument;
 }
 
@@ -41,8 +41,8 @@ async function roundTrip(fixtureName: string): Promise<{ original: Captured; reo
   const text = serializeProject(original.toProject());
   const reopenedDocument = new DiscDocument(document.createElement("canvas"));
   await reopenedDocument.open(parseProject(text));
-  reopenedDocument.renderer.draw(false);
-  original.renderer.draw(false);
+  reopenedDocument.renderer.draw({ withSelection: false });
+  original.renderer.draw({ withSelection: false });
   return { original: capture(original), reopened: capture(reopenedDocument) };
 }
 

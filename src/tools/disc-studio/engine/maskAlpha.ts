@@ -1,5 +1,5 @@
 // Turns an uploaded mask image into a black mask whose alpha is the ink.
-// Mirrors buildMasks in disc-studio.html (lines 152-162); S2.2's parity test is the final judge.
+// Mirrors buildMasks in disc-studio.html (lines 152-162); the parity test in tests/disc-parity is the final judge.
 
 const ALPHA_TRANSPARENT_BELOW = 250; // any pixel below this makes the image "has alpha"
 const LUMA_RED = 0.299;

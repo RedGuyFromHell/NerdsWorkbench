@@ -1,8 +1,8 @@
 // The pointer on the disc canvas: where it is in mm, how far a drag moved a layer, what a wheel
 // step does, and the listeners that wire those to a DiscDocument for the move, erase and restore
 // tools. The key listener is here too.
-// Mirrors disc-studio.html (lines 515-594); S2.2's parity test judges the drawing, not this.
-import { canvasSize, hitTest, pxPerMm, type Point } from "./geometry";
+// Mirrors disc-studio.html (lines 515-594); the parity test in tests/disc-parity judges the drawing, not this.
+import { canvasSize, hitTest, pxPerMm, roundToHundredths, type Point } from "./geometry";
 import type { DiscDocument } from "./document";
 import { replaceLayer, selectLayer } from "./actions";
 import {
@@ -42,10 +42,6 @@ export interface WheelInput {
 }
 
 // #region Pointer maths
-export function roundToHundredths(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 /** A page position as mm from the disc centre, given where and how big the canvas is shown. */
 export function pointerToMm(
   client: Point,

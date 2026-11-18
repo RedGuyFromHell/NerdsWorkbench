@@ -13,6 +13,9 @@ interface PickOptions {
   filters: FileFilter[];
 }
 
+/** The extension of every Nerd's Workbench project file; the "tool" field inside says which tool it is for. */
+export const PROJECT_EXTENSION = ".nerd";
+
 const PATH_HEADER = "x-file-path";
 const FALLBACK_FILE_NAME = "disc-design";
 const DESKTOP_ONLY = "Files can only be opened and saved in the desktop app.";

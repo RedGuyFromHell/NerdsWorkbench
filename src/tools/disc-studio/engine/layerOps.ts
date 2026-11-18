@@ -1,6 +1,6 @@
 // What the layer list and the eraser do, as pure functions: reorder, copy, cover and fit, and
 // the eraser stroke points. Each returns a new value and changes nothing it is given.
-// Mirrors disc-studio.html (lines 336-342, 396-406, 551-557); S2.2's parity test is the final judge.
+// Mirrors disc-studio.html (lines 336-342, 396-406, 551-557); the parity test in tests/disc-parity is the final judge.
 import type { Point } from "./geometry";
 import type { ImageLayer, Layer, Stroke } from "./project";
 

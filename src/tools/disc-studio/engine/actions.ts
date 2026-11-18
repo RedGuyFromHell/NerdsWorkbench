@@ -139,11 +139,16 @@ async function imageSource(file: File): Promise<string> {
   return isSvgFile(file) ? prepareSvg(await file.text()) : readAsDataUrl(file);
 }
 
-async function addImageFile(discDocument: DiscDocument, file: File, ui: FileUi): Promise<void> {
+async function loadImageFile(file: File): Promise<{ img: HTMLImageElement; src: string }> {
   const src = await imageSource(file);
   const img = await loadImage(src).catch(() => {
     throw new Error(IMAGE_OPEN_ERROR);
   });
+  return { img, src };
+}
+
+async function addImageFile(discDocument: DiscDocument, file: File, ui: FileUi): Promise<void> {
+  const { img, src } = await loadImageFile(file);
   const imageId = `i${discDocument.nextId++}`;
   discDocument.images.set(imageId, { img, src });
   const name = layerNameFromFile(file.name);
@@ -185,11 +190,7 @@ export async function addImageFiles(
 }
 /** Makes the image file the mask of the disc and switches the mask type to it. */
 export async function setUploadedMask(discDocument: DiscDocument, file: File): Promise<void> {
-  const src = await imageSource(file);
-  const img = await loadImage(src).catch(() => {
-    throw new Error(IMAGE_OPEN_ERROR);
-  });
-  discDocument.mask = { img, src };
+  discDocument.mask = await loadImageFile(file);
   discDocument.settings = { ...discDocument.settings, maskMode: "upload" };
   discDocument.renderer.buildMasks();
   discDocument.markChanged();

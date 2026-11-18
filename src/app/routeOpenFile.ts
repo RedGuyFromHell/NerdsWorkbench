@@ -1,13 +1,16 @@
 // Which tool a file opens in. Pure: the page reads the file, this decides.
 // A .nerd file is routed by its "tool" field (one extension serves every tool); an old .disc.json
 // file is routed by its extension through the registry.
-import { fileNameOf } from "../lib/files";
-import { getTool, resolveToolForFile } from "../tools/registry";
+import { fileNameOf, PROJECT_EXTENSION } from "../lib/files";
+import { resolveToolForFile, TOOLS } from "../tools/registry";
 import type { ToolId } from "../tools/types";
 
 export type RouteResult = { ok: true; toolId: ToolId } | { ok: false; message: string };
 
-const PROJECT_EXTENSION = ".nerd";
+/** True when the value is the id of a tool in the registry. */
+export function isToolId(value: unknown): value is ToolId {
+  return TOOLS.some((tool) => tool.id === value);
+}
 
 /** The top-level "tool" field of a project file's text (undefined when there is none). */
 export function toolFieldOf(text: string): unknown {
@@ -28,14 +31,13 @@ export function routeOpenFile(path: string, toolField: unknown): RouteResult {
     if (typeof toolField !== "string") {
       return { ok: false, message: `${name} does not say which tool it belongs to.` };
     }
-    try {
-      return { ok: true, toolId: getTool(toolField as ToolId).id };
-    } catch {
+    if (!isToolId(toolField)) {
       return {
         ok: false,
         message: `${name} belongs to a tool this app does not have ("${toolField}").`,
       };
     }
+    return { ok: true, toolId: toolField };
   }
   const tool = resolveToolForFile(path);
   if (!tool) return { ok: false, message: `${name} is not a file Nerd's Workbench can open.` };

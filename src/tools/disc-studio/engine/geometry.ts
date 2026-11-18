@@ -1,6 +1,6 @@
 // The disc's measurements and the layer geometry: pixels per mm, the canvas size, the mask and
 // guide radii, the band arc, a layer's box, toLocal and the hit test. No drawing here.
-// Mirrors disc-studio.html (lines 131-218, 294-300, 519-527); S2.2's parity test is the final judge.
+// Mirrors disc-studio.html (lines 131-218, 294-300, 519-527); the parity test in tests/disc-parity is the final judge.
 import type { DiscSettings, Layer, TextLayer } from "./project";
 
 const MM_PER_INCH = 25.4;
@@ -29,6 +29,11 @@ type MaskSettings = Pick<DiscSettings, "d" | "hole" | "bleed" | "dpi" | "margin"
 type Placement = Pick<Layer, "x" | "y" | "rot" | "flip">;
 
 // #region Disc measurements
+/** Two decimals: what the number fields show and what the wheel edits write. */
+export function roundToHundredths(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export function pxPerMm(dpi: number): number {
   return dpi / MM_PER_INCH;
 }

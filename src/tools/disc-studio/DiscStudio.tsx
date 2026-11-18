@@ -28,7 +28,7 @@ function carriesFiles(event: DragEvent): boolean {
 function EmptyHint({ doc }: { doc: DiscDocument }) {
   useDocumentVersion(doc);
   if (doc.layers.length > 0) return null;
-  return <p className="disc-studio__empty">Drop images here, or use “Add text”.</p>;
+  return <p className="disc-studio__empty">Drop images here, or use “Add image”.</p>;
 }
 
 export default function DiscStudio({ openRequest, setStatus }: ToolContext) {

@@ -1,6 +1,6 @@
 // Prepares an SVG for use as an image layer: a viewBox and a big pixel size, so it is drawn sharp
-// at any print size. Mirrors prepareSvg in disc-studio.html (lines 416-429); S2.2's parity test is
-// the final judge. Needs a DOM (DOMParser, XMLSerializer): the webview has one, the test uses happy-dom.
+// at any print size. Mirrors prepareSvg in disc-studio.html (lines 416-429); the parity test in
+// tests/disc-parity is the final judge. Needs a DOM (DOMParser, XMLSerializer): the webview has one, the test uses happy-dom.
 
 const SVG_LONG_SIDE_PX = 4096;
 const FALLBACK_SIZE = 1000; // used when the file gives neither a viewBox nor a width and height

@@ -3,6 +3,15 @@
 // parity test in tests/disc-parity is the final judge, so the order of canvas operations is kept
 // exactly as the original has it.
 import {
+  BRUSH_OUTLINE_DARK,
+  BRUSH_OUTLINE_LIGHT,
+  ERASER_PAINT_COLOUR,
+  GUIDE_CUT_COLOUR,
+  GUIDE_SAFE_COLOUR,
+  SELECTION_COLOUR,
+  ZONE_TINT,
+} from "./colours";
+import {
   bandArcPath,
   builtinMaskRadii,
   canvasSize,
@@ -23,10 +32,6 @@ const FULL_TURN = Math.PI * 2;
 const HALF_TURN_DEGREES = 180;
 const BOLD_WEIGHT = 700;
 const REGULAR_WEIGHT = 400;
-const ZONE_TINT = "rgba(220,40,40,0.18)";
-const GUIDE_CUT_COLOUR = "#e00";
-const GUIDE_SAFE_COLOUR = "#fff";
-const SELECTION_COLOUR = "#3aa0ff";
 const SELECTION_DASH = [10, 6];
 const BRUSH_DASH = [6, 6];
 // Line widths grow with the canvas but never fall under 2 px.
@@ -208,11 +213,11 @@ export class DiscRenderer implements BoxSource {
     eraser.globalCompositeOperation = "source-over";
     eraser.filter = "none";
     eraser.clearRect(0, 0, size, size);
-    eraser.fillStyle = "#000";
+    eraser.fillStyle = ERASER_PAINT_COLOUR;
     eraser.fillRect(0, 0, size, size);
     eraser.lineCap = "round";
     eraser.lineJoin = "round";
-    eraser.strokeStyle = "#000";
+    eraser.strokeStyle = ERASER_PAINT_COLOUR;
     for (const stroke of layer.erase) this.paintStroke(eraser, layer, stroke, unit);
     eraser.setTransform(1, 0, 0, 1, 0, 0);
     eraser.globalCompositeOperation = "source-over";
@@ -307,19 +312,21 @@ export class DiscRenderer implements BoxSource {
     const centre = size / 2;
     const guides = guideRadii(this.discDocument.settings);
     const lineWidth = Math.max(MIN_LINE_PX, size / GUIDE_WIDTH_DIVISOR);
-    const circle = (radius: number, colour: string, dashed: boolean): void => {
+    const circle = (radius: number, colour: string, options: { dashed?: boolean } = {}): void => {
       view.beginPath();
       view.arc(centre, centre, radius, 0, FULL_TURN);
       view.lineWidth = lineWidth;
       view.strokeStyle = colour;
-      view.setLineDash(dashed ? [lineWidth * GUIDE_DASH_ON, lineWidth * GUIDE_DASH_OFF] : []);
+      view.setLineDash(
+        options.dashed ? [lineWidth * GUIDE_DASH_ON, lineWidth * GUIDE_DASH_OFF] : [],
+      );
       view.stroke();
     };
-    circle(guides.cut, GUIDE_CUT_COLOUR, false);
-    circle(guides.safe, GUIDE_SAFE_COLOUR, true);
+    circle(guides.cut, GUIDE_CUT_COLOUR);
+    circle(guides.safe, GUIDE_SAFE_COLOUR, { dashed: true });
     if (this.discDocument.settings.hole > 0) {
-      circle(guides.hole, GUIDE_CUT_COLOUR, false);
-      circle(guides.holeSafe, GUIDE_SAFE_COLOUR, true);
+      circle(guides.hole, GUIDE_CUT_COLOUR);
+      circle(guides.holeSafe, GUIDE_SAFE_COLOUR, { dashed: true });
     }
     view.setLineDash([]);
   }
@@ -354,16 +361,17 @@ export class DiscRenderer implements BoxSource {
       FULL_TURN,
     );
     view.lineWidth = Math.max(MIN_LINE_PX, size / BRUSH_WIDTH_DIVISOR);
-    view.strokeStyle = "#000";
+    view.strokeStyle = BRUSH_OUTLINE_DARK;
     view.stroke();
     view.setLineDash(BRUSH_DASH);
-    view.strokeStyle = "#fff";
+    view.strokeStyle = BRUSH_OUTLINE_LIGHT;
     view.stroke();
     view.setLineDash([]);
   }
 
   /** The view canvas: bare PLA, the red zones, the print, the guides and, with `withSelection`, the selection box and brush. */
-  draw(withSelection = true): void {
+  draw(options: { withSelection?: boolean } = {}): void {
+    const { withSelection = true } = options;
     const { settings, selected, tool, hover } = this.discDocument;
     const size = canvasSize(settings);
     const centre = size / 2;

@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { FieldFrame } from "./Field";
+import { clamp, clampedNumber, inRangeNumber } from "./numberInput";
 
 interface NumberFieldProps {
   label: string;
@@ -11,11 +12,7 @@ interface NumberFieldProps {
   hint?: string;
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-/** A number input with chunky up and down steppers. Typing is free; the value is clamped as it is read. */
+/** A number input with chunky up and down steppers. Typing is free: a number inside the range is reported as it is typed, the rest is clamped when typing ends. */
 export function NumberField({
   label,
   value,
@@ -33,10 +30,10 @@ export function NumberField({
     setDraft((current) => (Number(current) === value ? current : String(value)));
   }, [value]);
 
-  function commit(text: string) {
-    const parsed = Number(text);
-    if (text.trim() === "" || Number.isNaN(parsed)) return;
-    onChange(clamp(parsed, min, max));
+  function finishTyping() {
+    const clamped = clampedNumber(draft, min, max);
+    if (clamped !== null) onChange(clamped);
+    setDraft(String(clamped ?? value));
   }
 
   function stepBy(direction: 1 | -1) {
@@ -56,9 +53,13 @@ export function NumberField({
           value={draft}
           onChange={(event) => {
             setDraft(event.target.value);
-            commit(event.target.value);
+            const typed = inRangeNumber(event.target.value, min, max);
+            if (typed !== null) onChange(typed);
           }}
-          onBlur={() => setDraft(String(value))}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") finishTyping();
+          }}
+          onBlur={finishTyping}
         />
         <div className="number-field__steppers">
           <button type="button" aria-label={`Increase ${label}`} onClick={() => stepBy(1)}>

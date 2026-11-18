@@ -6,9 +6,10 @@ import {
   patchLayer,
   patchTextLayer,
 } from "../engine/actions";
-import { DEFAULT_TINT_COLOUR, TEXT_FONTS } from "../engine/addLayer";
+import { TEXT_FONTS } from "../engine/addLayer";
+import { DEFAULT_TINT_COLOUR } from "../engine/colours";
 import type { DiscDocument } from "../engine/document";
-import { roundToHundredths } from "../engine/pointer";
+import { roundToHundredths } from "../engine/geometry";
 import type { ImageLayer, Layer, TextLayer } from "../engine/project";
 import { clearEraser } from "../engine/toolActions";
 import { Button } from "../../../ui/Button";

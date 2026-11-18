@@ -3,13 +3,12 @@
 // the tool for each path (routeOpenFile) and hands it to the app. Thin on purpose: the decision is
 // in routeOpenFile.ts, where it has tests.
 import { useEffect, useRef } from "react";
-import { fileNameOf, readFileBytes } from "../lib/files";
+import { fileNameOf, PROJECT_EXTENSION, readFileBytes } from "../lib/files";
 import { isTauri } from "../lib/platform";
 import type { OpenRequest, ToolId } from "../tools/types";
 import { routeOpenFile, toolFieldOf } from "./routeOpenFile";
 
 const OPEN_FILE_EVENT = "open-file";
-const NERD_EXTENSION = ".nerd";
 
 export interface OpenFileHandlers {
   /** A path is ready to open in this tool. */
@@ -22,7 +21,7 @@ export interface OpenFileHandlers {
 async function handlePath(path: string, handlers: OpenFileHandlers): Promise<void> {
   try {
     let toolField: unknown;
-    if (path.toLowerCase().endsWith(NERD_EXTENSION)) {
+    if (path.toLowerCase().endsWith(PROJECT_EXTENSION)) {
       toolField = toolFieldOf(new TextDecoder().decode(await readFileBytes(path)));
     }
     const route = routeOpenFile(path, toolField);

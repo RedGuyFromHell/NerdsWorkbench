@@ -1,0 +1,18 @@
+#!/bin/sh
+# Nerd Castle pre-commit hook: runs the fast part of the health gate.
+# Installed to .githooks/pre-commit by engineering/install.mjs (core.hooksPath = .githooks).
+#
+# Default command: node tools/check.mjs --fast
+# A repo that keeps its own gate (Hephaestus) has a one-line file .githooks/hook-command
+# holding the command to run instead, for example: pnpm check
+cd "$(git rev-parse --show-toplevel)" || exit 1
+cmd="node tools/check.mjs --fast"
+if [ -f .githooks/hook-command ]; then
+  cmd=$(tr -d '\r' < .githooks/hook-command)
+fi
+sh -c "$cmd"
+code=$?
+if [ "$code" -ne 0 ]; then
+  echo "pre-commit: the health gate failed. Fix it, then commit again. Never use --no-verify." >&2
+fi
+exit "$code"

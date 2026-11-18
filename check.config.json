@@ -1,0 +1,64 @@
+{
+  "steps": [
+    {
+      "name": "format",
+      "command": "corepack pnpm exec prettier --check .",
+      "level": "fail",
+      "fast": true
+    },
+    {
+      "name": "lint",
+      "command": "corepack pnpm exec eslint .",
+      "level": "fail",
+      "fast": true
+    },
+    {
+      "name": "rust-format",
+      "command": "cargo fmt --manifest-path src-tauri/Cargo.toml --check",
+      "level": "fail",
+      "fast": true
+    },
+    {
+      "name": "secrets-staged",
+      "command": "gitleaks git --staged --no-banner --redact",
+      "level": "fail",
+      "fast": true
+    },
+    {
+      "name": "types",
+      "command": "corepack pnpm exec tsc --noEmit",
+      "level": "fail",
+      "fast": false
+    },
+    {
+      "name": "tests",
+      "command": "corepack pnpm exec vitest run",
+      "level": "fail",
+      "fast": false
+    },
+    {
+      "name": "web-build",
+      "command": "corepack pnpm exec vite build",
+      "level": "fail",
+      "fast": false
+    },
+    {
+      "name": "rust-lint",
+      "command": "cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+      "level": "fail",
+      "fast": false
+    },
+    {
+      "name": "rust-tests",
+      "command": "cargo test --manifest-path src-tauri/Cargo.toml",
+      "level": "fail",
+      "fast": false
+    },
+    {
+      "name": "secrets",
+      "command": "gitleaks git --no-banner --redact",
+      "level": "fail",
+      "fast": false
+    }
+  ]
+}

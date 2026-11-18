@@ -3,6 +3,19 @@
 // document through subscribe and getVersion (useSyncExternalStore), the canvas through requestDraw.
 import { TEXT_MEASURE_SCALE, type Point } from "./geometry";
 import {
+  beginGesture,
+  endGesture,
+  isDirty,
+  recordChange,
+  redo,
+  resetHistory,
+  sealHistory,
+  undo,
+  type DiscContent,
+  type History,
+  type HistoryMove,
+} from "./history";
+import {
   DEFAULT_SETTINGS,
   nextLayerId,
   type DiscProject,
@@ -40,12 +53,16 @@ export class DiscDocument {
   nextId = 1;
   readonly renderer: DiscRenderer;
 
+  private history: History;
+  private saved: DiscContent; // the content of the last save or open; isDirty compares against it
   private version = 0;
   private drawQueued = false;
   private readonly listeners = new Set<() => void>();
 
   constructor(readonly view: HTMLCanvasElement) {
     this.renderer = new DiscRenderer(this, view);
+    this.history = resetHistory(this.content());
+    this.saved = this.history.present;
   }
 
   // #region Store
@@ -56,11 +73,16 @@ export class DiscDocument {
 
   readonly getVersion = (): number => this.version;
 
-  /** Call after changing any field: tells the panels and queues a redraw. */
+  /** Call after changing any field: records an undo step if the content changed, tells the panels and queues a redraw. */
   markChanged(): void {
+    this.history = recordChange(this.history, this.content(), performance.now());
+    this.notify();
+    this.requestDraw();
+  }
+
+  private notify(): void {
     this.version++;
     for (const listener of this.listeners) listener();
-    this.requestDraw();
   }
 
   /** Draws once on the next frame, however many times it is called before then. */
@@ -71,6 +93,79 @@ export class DiscDocument {
       this.drawQueued = false;
       this.renderer.draw();
     });
+  }
+  // #endregion
+
+  // #region History
+  /** A drag or an eraser stroke: every change until endGesture is one undo step. */
+  beginGesture(): void {
+    this.history = beginGesture(this.history);
+  }
+
+  endGesture(): void {
+    this.history = endGesture(this.history);
+  }
+
+  /** The content as last recorded: take it before writing a file, and hand it to markSaved after. */
+  get committed(): DiscContent {
+    return this.history.present;
+  }
+
+  /** True when the content differs from the last save or open. Export PNG does not count as a save. */
+  isDirty(): boolean {
+    return isDirty(this.history, this.saved);
+  }
+
+  /** The file holds `content` (what committed was when the write started). Seals the history, so the next change is never merged into the step before the save. Tells the panels, so a watcher sees the flag flip. */
+  markSaved(content: DiscContent): void {
+    this.saved = content;
+    this.history = sealHistory(this.history);
+    this.notify();
+  }
+
+  get canUndo(): boolean {
+    return this.history.past.length > 0;
+  }
+
+  get canRedo(): boolean {
+    return this.history.future.length > 0;
+  }
+
+  // WHY: a snapshot restored in the middle of a drag or an eraser stroke would be overwritten by the next move.
+  undo(): void {
+    if (this.history.gesture !== "none") return;
+    this.restoreMove(undo(this.history));
+  }
+
+  redo(): void {
+    if (this.history.gesture !== "none") return;
+    this.restoreMove(redo(this.history));
+  }
+
+  private content(): DiscContent {
+    return {
+      settings: this.settings,
+      layers: this.layers,
+      images: this.images,
+      mask: this.mask,
+      nextId: this.nextId,
+      selectedId: this.selected?.id ?? null,
+    };
+  }
+
+  private restoreMove(move: HistoryMove | null): void {
+    if (!move) return;
+    const { content } = move;
+    const masksChanged = this.settings !== content.settings || this.mask !== content.mask;
+    this.history = move.history;
+    this.settings = content.settings;
+    this.layers = content.layers;
+    this.images = new Map(content.images); // the document adds to its own map in place, the snapshot keeps its own
+    this.mask = content.mask;
+    this.nextId = content.nextId;
+    this.selected = this.layers.find((layer) => layer.id === content.selectedId) ?? null;
+    if (masksChanged) this.renderer.buildMasks();
+    this.markChanged(); // sees the content already recorded: no new step
   }
   // #endregion
 
@@ -103,6 +198,8 @@ export class DiscDocument {
     this.selected = null;
     this.nextId = nextLayerId(this.layers, images.keys());
     this.renderer.buildMasks();
+    this.history = resetHistory(this.content());
+    this.saved = this.history.present;
     this.markChanged();
   }
 }

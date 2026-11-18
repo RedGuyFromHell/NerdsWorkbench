@@ -75,17 +75,22 @@ A picture that has fewer pixels than the print needs (below 95% of its width at 
 
 ### Shortcuts
 
-They work while Disc Studio is on screen and the focus is not in a field or a message window.
+They work while Disc Studio is on screen and the focus is not in a field or a message window. Ctrl+Z and Ctrl+Y also work with a list, a checkbox or a colour picker focused; inside a text field they undo the typing there.
 
 | Key                        | What it does                                          |
 | -------------------------- | ----------------------------------------------------- |
 | V, E, R                    | Move, Eraser and Restore tool                         |
-| Ctrl+Z                     | Undo the last eraser stroke of the selected layer     |
+| Ctrl+Z                     | Undo the last change (one step per act)               |
+| Ctrl+Shift+Z, Ctrl+Y       | Redo                                                  |
 | Arrow keys                 | Nudge the selected layer 0.1 mm (hold Shift for 1 mm) |
 | Delete or Backspace        | Delete the selected layer                             |
 | Ctrl+D                     | Copy the selected layer                               |
 | Wheel over the disc        | Resize the layer (brush size with Eraser or Restore)  |
 | Shift + wheel, Alt + wheel | Turn the layer; finer steps (see above)               |
+
+### Unsaved work
+
+Disc Studio counts as having unsaved work from the first change after a save or an open until the next Save project (Export PNG does not count as a save; undoing back to the saved state clears it). Every way out of a tool with unsaved work asks first, in a message window with _Save_, _Don't save_ and _Cancel_: Escape, the mouse Back and Forward buttons, the _< HOME_ button, closing the window (the X button, Alt+F4 or the taskbar) and _Update now_. _Cancel_, a cancelled Save dialog and a failed save keep you where you are. _Don't save_ only leaves: going home keeps the work in the tool until the window closes, and Back (or the tile) brings you back to it. _Open project_ (and a `.nerd` file opened from Explorer) asks the same way before it replaces unsaved work: _Save_ writes the file and then opens, _Don't save_ opens, _Cancel_ keeps the design. Windows shutdown and log-off cannot ask. A new tool takes part by calling `setUnsavedWork` from its `ToolContext` (`src/tools/types.ts`).
 
 ### The parity test
 

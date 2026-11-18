@@ -18,9 +18,17 @@ export interface OpenRequest {
   nonce: number;
 }
 
+/** What the shell runs when the user asks to save a tool's unsaved work. */
+export interface UnsavedWork {
+  /** Saves the work. True when it is safe on disk; false when the user cancelled or it failed (the tool has already shown why). Never throws. */
+  save(): Promise<boolean>;
+}
+
 export interface ToolContext {
   openRequest: OpenRequest | null;
   setStatus(text: string): void;
+  /** Call with the save action while the tool holds work that is not saved, and with null when it does not. */
+  setUnsavedWork(work: UnsavedWork | null): void;
 }
 
 export interface ToolDefinition {

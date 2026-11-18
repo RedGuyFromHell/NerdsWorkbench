@@ -127,13 +127,6 @@ export function replaceLastStroke(layer: Layer, stroke: Stroke): Layer {
   return { ...layer, erase: [...strokes.slice(0, -1), stroke] };
 }
 
-/** The layer without its last stroke: what Ctrl+Z does. */
-export function undoStroke(layer: Layer): Layer {
-  const strokes = layer.erase ?? [];
-  if (strokes.length === 0) return layer;
-  return { ...layer, erase: strokes.slice(0, -1) };
-}
-
 export function clearStrokes(layer: Layer): Layer {
   return { ...layer, erase: [] };
 }

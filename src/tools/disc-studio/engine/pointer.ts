@@ -12,7 +12,7 @@ import {
   setBrush,
   type ActiveStroke,
 } from "./toolActions";
-import { isTypingTarget, keyCommand } from "./keys";
+import { ignoresKey, keyCommand } from "./keys";
 import type { DiscSettings, Layer } from "./project";
 
 const WHEEL_STEP = 1.03; // size grows or shrinks 3% a wheel step
@@ -107,6 +107,7 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
     if (!discDocument.selected) selectLayer(discDocument, layerAt(point));
     const { selected } = discDocument;
     if (!selected) return;
+    discDocument.beginGesture();
     stroke = beginStroke(discDocument, selected, point);
     canvas.setPointerCapture(event.pointerId);
   };
@@ -115,6 +116,7 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
     const layer = layerAt(point);
     if (layer !== discDocument.selected) selectLayer(discDocument, layer);
     if (!layer) return;
+    discDocument.beginGesture();
     grab = { x: layer.x, y: layer.y, pointer: point };
     canvas.setPointerCapture(event.pointerId);
     canvas.style.cursor = CURSOR_GRABBING;
@@ -145,7 +147,11 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
     canvas.style.cursor = layerAt(point) ? CURSOR_GRAB : "default";
   };
 
+  // WHY: a gesture that never ended would merge every later change into one undo step, so a cancelled
+  // pointer and a lost capture (the tool hidden mid-drag, no pointerup ever comes) end it too.
+  // Ending twice is harmless: a normal release fires pointerup and then lostpointercapture.
   const onPointerUp = (): void => {
+    discDocument.endGesture();
     grab = null;
     stroke = null;
     canvas.style.cursor = idleCursor();
@@ -181,6 +187,8 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
+  canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("lostpointercapture", onPointerUp);
   canvas.addEventListener("pointerleave", onPointerLeave);
   // WHY: a wheel listener is passive unless it says otherwise, and a passive one cannot stop the scroll.
   canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -189,6 +197,8 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
     canvas.removeEventListener("pointerdown", onPointerDown);
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerup", onPointerUp);
+    canvas.removeEventListener("pointercancel", onPointerUp);
+    canvas.removeEventListener("lostpointercapture", onPointerUp);
     canvas.removeEventListener("pointerleave", onPointerLeave);
     canvas.removeEventListener("wheel", onWheel);
     unsubscribe();
@@ -201,9 +211,9 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
  */
 export function attachKeys(discDocument: DiscDocument, isActive: () => boolean): () => void {
   const onKeyDown = (event: KeyboardEvent): void => {
-    if (!isActive() || isTypingTarget(event.target)) return;
+    if (!isActive()) return;
     const command = keyCommand(event, discDocument.selected !== null);
-    if (!command) return;
+    if (!command || ignoresKey(command, event.target)) return;
     // WHY: the arrows scroll, Backspace can go back, Ctrl+D bookmarks and Ctrl+Z undoes a field; a tool key does none of that.
     if (command.type !== "tool") event.preventDefault();
     runKeyCommand(discDocument, command);

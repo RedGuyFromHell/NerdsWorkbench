@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The default permissions, the window commands the custom title bar calls, and self-update",
+  "description": "The default permissions, the window commands the custom title bar and the close hook call, and self-update",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -9,6 +9,7 @@
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
+    "core:window:allow-destroy",
     "updater:default",
     "process:allow-restart",
     "dialog:default"

@@ -2,12 +2,13 @@
 // properties on the right. The canvas is drawn by the DiscDocument on requestAnimationFrame;
 // React only renders the panels, which follow the document through useDocumentVersion.
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { UnsavedDialog } from "../../app/UnsavedDialog";
 import type { ToolContext } from "../types";
 import "../../styles/disc-fonts.css";
 import "./disc-studio.css";
 import { addImageFiles, type FileUi } from "./engine/actions";
 import { DiscDocument } from "./engine/document";
-import { openProjectFromPath } from "./engine/fileActions";
+import { openProjectFromDisk, openProjectFromPath, saveProjectToDisk } from "./engine/fileActions";
 import { attachKeys, attachPointer } from "./engine/pointer";
 import { AddPanel } from "./panels/AddPanel";
 import { DiscSettingsPanel } from "./panels/DiscSettings";
@@ -19,7 +20,9 @@ import { ToolPanel } from "./panels/ToolPanel";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { SectionHeader } from "../../ui/SectionHeader";
+import { discStudio } from "./index";
 import { useDocumentVersion } from "./useDocumentVersion";
+import { useOpenGuard } from "./useOpenGuard";
 
 function carriesFiles(event: DragEvent): boolean {
   return event.dataTransfer.types.includes("Files");
@@ -31,7 +34,7 @@ function EmptyHint({ doc }: { doc: DiscDocument }) {
   return <p className="disc-studio__empty">Drop images here, or use “Add image”.</p>;
 }
 
-export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
+export default function DiscStudio({ openRequest, setStatus, setUnsavedWork }: ToolContext) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [doc, setDoc] = useState<DiscDocument | null>(null);
@@ -39,6 +42,8 @@ export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // WHY: stable, so panels and effects that take it do not run again on every render.
   const ui = useMemo<FileUi>(() => ({ status: setStatus, error: setErrorMessage }), [setStatus]);
+  // Every open that would replace unsaved work asks first.
+  const { pending: pendingOpen, guardedOpen, answer: answerOpen } = useOpenGuard(doc, ui);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -65,8 +70,26 @@ export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
   useEffect(() => {
     if (!doc || !openRequest || handledNonce.current === openRequest.nonce) return;
     handledNonce.current = openRequest.nonce;
-    void openProjectFromPath(doc, openRequest.path, ui);
-  }, [doc, openRequest, ui]);
+    guardedOpen(() => openProjectFromPath(doc, openRequest.path, ui));
+  }, [doc, openRequest, ui, guardedOpen]);
+
+  // Tells the shell while the design differs from the last save or open (an undo back to it clears it).
+  useEffect(() => {
+    if (!doc) return;
+    const work = { save: () => saveProjectToDisk(doc, ui) };
+    let reported = false;
+    const follow = () => {
+      const dirty = doc.isDirty();
+      if (dirty === reported) return;
+      reported = dirty;
+      setUnsavedWork(dirty ? work : null);
+    };
+    const unsubscribe = doc.subscribe(follow);
+    return () => {
+      unsubscribe();
+      setUnsavedWork(null);
+    };
+  }, [doc, ui, setUnsavedWork]);
 
   useEffect(() => {
     if (!doc) return;
@@ -105,7 +128,11 @@ export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
         {doc ? (
           <>
             <DiscSettingsPanel doc={doc} ui={ui} />
-            <ProjectPanel doc={doc} ui={ui} />
+            <ProjectPanel
+              doc={doc}
+              ui={ui}
+              onOpenProject={() => guardedOpen(() => openProjectFromDisk(doc, ui))}
+            />
           </>
         ) : null}
       </aside>
@@ -125,12 +152,22 @@ export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
               <SectionHeader title="Mouse and keys" />
               <p className="disc-hint">
                 Drag = move · wheel = size · Shift + wheel = rotate · Alt = finer steps · arrows =
-                nudge 0.1 mm (Shift: 1 mm) · Del = delete · Ctrl+D = copy
+                nudge 0.1 mm (Shift: 1 mm) · Del = delete · Ctrl+D = copy · Ctrl+Z = undo ·
+                Ctrl+Shift+Z = redo
               </p>
             </section>
           </>
         ) : null}
       </aside>
+      {pendingOpen ? (
+        <UnsavedDialog
+          tool={discStudio}
+          saving={pendingOpen.saving}
+          onSave={() => void answerOpen("save")}
+          onSkip={() => void answerOpen("skip")}
+          onCancel={() => void answerOpen("cancel")}
+        />
+      ) : null}
       {errorMessage ? (
         <Dialog
           title="Disc Studio"

@@ -10,21 +10,25 @@ import type { AvailableUpdate } from "./updateCheck";
 interface UpdatePromptProps {
   update: AvailableUpdate;
   onClose(): void;
+  /** Runs the download only when the user allowed the restart (the shell asks about unsaved work). */
+  beforeInstall(proceed: () => void): void;
 }
 
 type Phase = { kind: "asking" } | { kind: "installing" } | { kind: "failed"; message: string };
 
 /** "A new version is out": Update now downloads, installs and restarts; Later just closes. */
-export function UpdatePrompt({ update, onClose }: UpdatePromptProps) {
+export function UpdatePrompt({ update, onClose, beforeInstall }: UpdatePromptProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "asking" });
   const [progress, setProgress] = useState<DownloadProgress>(NO_PROGRESS);
 
-  const updateNow = () => {
+  const install = () => {
     setPhase({ kind: "installing" });
     installUpdate(update, relaunchApp, setProgress).catch((error: unknown) => {
       setPhase({ kind: "failed", message: error instanceof Error ? error.message : String(error) });
     });
   };
+  // WHY: the update restarts the app without a close request, so unsaved work is asked about first.
+  const updateNow = () => beforeInstall(install);
 
   const installing = phase.kind === "installing";
   // WHY: closing mid-download would leave a half-installed update behind a window that vanished.

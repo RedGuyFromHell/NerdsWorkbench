@@ -1,5 +1,5 @@
 // What the tools and shortcut keys do to a DiscDocument: pick a tool, set the brush, draw an
-// eraser stroke, undo it, and run a key command. Each changes the document, then calls
+// eraser stroke, and run a key command. Each changes the document, then calls
 // markChanged() once (or requestDraw() when only the canvas needs to follow).
 import { toLocal, type Point } from "./geometry";
 import { deleteLayer, duplicateSelected, replaceLayer } from "./actions";
@@ -12,7 +12,6 @@ import {
   nudgeLayer,
   replaceLastStroke,
   startStroke,
-  undoStroke,
 } from "./layerOps";
 import type { Layer, Stroke } from "./project";
 
@@ -73,12 +72,6 @@ export function continueStroke(
   return { layerId: layer.id, stroke };
 }
 
-/** Ctrl+Z: takes the last stroke off the selected layer. */
-export function undoLastStroke(discDocument: DiscDocument): void {
-  const { selected } = discDocument;
-  if (selected?.erase?.length) replaceLayer(discDocument, undoStroke(selected));
-}
-
 export function clearEraser(discDocument: DiscDocument): void {
   const { selected } = discDocument;
   if (selected) replaceLayer(discDocument, clearStrokes(selected));
@@ -93,7 +86,10 @@ export function runKeyCommand(discDocument: DiscDocument, command: KeyCommand): 
       setTool(discDocument, command.tool);
       break;
     case "undo":
-      undoLastStroke(discDocument);
+      discDocument.undo();
+      break;
+    case "redo":
+      discDocument.redo();
       break;
     case "nudge":
       if (selected) replaceLayer(discDocument, nudgeLayer(selected, command.dx, command.dy));

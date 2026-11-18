@@ -79,11 +79,12 @@
 
 .disc-buttons {
   display: flex;
+  flex-wrap: wrap; /* two long labels (Save project, Open project) go one under the other in a narrow column */
   gap: 10px;
 }
 
 .disc-buttons .retro-button {
-  flex: 1 1 0;
+  flex: 1 1 auto;
   padding: 0 8px;
 }
 
@@ -149,4 +150,14 @@
 .layer-row .retro-button:active:not(:disabled) {
   transform: translate(1px, 1px);
   box-shadow: var(--shadow-pressed);
+}
+
+/* ---------- Tools ---------- */
+
+/* The tool in use looks pressed in. */
+.disc-tool--on,
+.disc-tool--on:hover:not(:disabled) {
+  background: var(--title-pink);
+  box-shadow: var(--shadow-pressed);
+  transform: translate(3px, 3px);
 }

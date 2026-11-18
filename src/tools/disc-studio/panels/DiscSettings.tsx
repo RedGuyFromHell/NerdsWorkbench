@@ -1,7 +1,9 @@
 // The left column: the disc and mask measurements and the view options.
-import { patchSetting } from "../engine/actions";
+import { patchSetting, type FileUi } from "../engine/actions";
 import type { DiscDocument } from "../engine/document";
+import { uploadMaskFromDisk } from "../engine/fileActions";
 import type { DiscSettings } from "../engine/project";
+import { Button } from "../../../ui/Button";
 import { Checkbox } from "../../../ui/Checkbox";
 import { ColorField } from "../../../ui/ColorField";
 import { NumberField } from "../../../ui/NumberField";
@@ -14,18 +16,21 @@ const MIN_DISC_MM = 1;
 const MIN_DPI = 1;
 const MAX_DPI = 1200;
 
-const MASK_OPTIONS = [
-  { value: "builtin", label: "Built-in" },
-  { value: "none", label: "None (whole disc)" },
-] as const;
+const BUILTIN_OPTION = { value: "builtin", label: "Built-in" };
+const UPLOADED_OPTION = { value: "upload", label: "Uploaded" };
+const NO_MASK_OPTION = { value: "none", label: "None (whole disc)" };
 
 function maskModeOf(value: string): DiscSettings["maskMode"] {
-  return value === "none" ? "none" : "builtin";
+  return value === "none" || value === "upload" ? value : "builtin";
 }
 
-export function DiscSettingsPanel({ doc }: { doc: DiscDocument }) {
+export function DiscSettingsPanel({ doc, ui }: { doc: DiscDocument; ui: FileUi }) {
   useDocumentVersion(doc);
   const { settings } = doc;
+  // WHY: Uploaded is offered once a mask file exists; until then there is nothing to select.
+  const maskOptions = doc.mask
+    ? [BUILTIN_OPTION, UPLOADED_OPTION, NO_MASK_OPTION]
+    : [BUILTIN_OPTION, NO_MASK_OPTION];
   const numberField = (
     label: string,
     key: "d" | "hole" | "bleed" | "dpi" | "margin" | "band" | "curve",
@@ -56,7 +61,7 @@ export function DiscSettingsPanel({ doc }: { doc: DiscDocument }) {
         <Select
           label="Type"
           value={settings.maskMode}
-          options={MASK_OPTIONS}
+          options={maskOptions}
           onChange={(value) => patchSetting(doc, "maskMode", maskModeOf(value))}
         />
         {settings.maskMode === "builtin" ? (
@@ -66,6 +71,11 @@ export function DiscSettingsPanel({ doc }: { doc: DiscDocument }) {
             {numberField("Band curve", "curve", { step: 0.5, min: 0 })}
           </div>
         ) : null}
+        <Button onClick={() => void uploadMaskFromDisk(doc, ui)}>Upload mask…</Button>
+        <p className="disc-hint">
+          Mask file: transparent = no ink, or white = art and dark/grey = no ink. It is stretched to
+          the full square.
+        </p>
       </section>
 
       <section className="disc-panel">

@@ -33,6 +33,8 @@ export interface Captured {
 /** What each page offers the test: render a fixture by name and hand back both canvases. */
 export interface ParityApi {
   render(fixtureName: string): Promise<Captured>;
+  /** The port only: saves the fixture to project text, opens that in a second document, draws both. */
+  roundTrip?(fixtureName: string): Promise<{ original: Captured; reopened: Captured }>;
 }
 
 declare global {

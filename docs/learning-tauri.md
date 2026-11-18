@@ -19,7 +19,7 @@ See `vite.config.ts:9`.
 
 ## What a Tauri command is, and `invoke`
 
-The page cannot touch the disk or the system by itself. A Tauri command is a Rust function marked `#[tauri::command]` and registered in the builder; the page calls it with `invoke("name", { args })`, which returns a promise, a bit like calling a method across a process boundary. This slice has no commands yet: the next slices add the file ones. Until then `src/lib/platform.ts` tells the UI whether it runs in the Tauri window or in a plain browser.
+The page cannot touch the disk or the system by itself. A Tauri command is a Rust function marked `#[tauri::command]` and registered in the builder; the page calls it with `invoke("name", { args })`, which returns a promise, a bit like calling a method across a process boundary. Our first commands are the two file ones in `src-tauri/src/files.rs`, registered with `generate_handler!` in `lib.rs`; `src/lib/files.ts` wraps them. `src/lib/platform.ts` tells the UI whether it runs in the Tauri window or in a plain browser, and the file wrappers throw one clear error in a browser.
 See `src-tauri/src/lib.rs:1`.
 
 ## A custom title bar: `decorations: false` and the drag region
@@ -96,3 +96,23 @@ See `src/tools/disc-studio/DiscStudio.tsx:52`.
 
 Browsers treat a `wheel` listener as passive: it may not call `preventDefault`, so the page can scroll smoothly without waiting for the handler. React's `onWheel` is passive, so the canvas listener is added by hand with `addEventListener("wheel", handler, { passive: false })`, and removed again in the cleanup function that `attachPointer` returns (the same idea as unsubscribing a C# event handler in `Dispose`).
 See `src/tools/disc-studio/engine/pointer.ts:140`.
+
+## Raw IPC bodies: sending bytes without a number array
+
+`invoke("cmd", { args })` sends JSON. A file as JSON is a list of numbers, roughly ten times the size, and slow to build. A command can instead take the whole request: in Rust `write_file_bytes(request: tauri::ipc::Request)` matches `request.body()` against `InvokeBody::Raw(bytes)`, and in the page the second argument of `invoke` is the bytes themselves (a `Uint8Array`), with the options as the third. The other way, a command that returns `tauri::ipc::Response::new(bytes)` gives the page an `ArrayBuffer`. A 1.5 MB round trip works in the real window. A raw body has no named arguments, so anything else the command needs (here the path) travels in a request header.
+See `src-tauri/src/files.rs:52`.
+
+## A path in an HTTP header: percent-encoding
+
+Header values are ASCII, and a path can hold spaces, `ș`, `ț`, `#` and `%`. The page writes the path with `encodeURIComponent` (every unsafe byte becomes `%XX` of its UTF-8) and Rust undoes it in `percent_decode`, which accepts only two hex digits after a `%` and demands valid UTF-8. A `%` in the path itself becomes `%25`, so it round-trips. `src/lib/files.test.ts` and the cargo tests pin both sides with the same examples.
+See `src/lib/files.ts:31`.
+
+## Capabilities for the dialogs, and why not the fs plugin
+
+The dialog plugin (`tauri-plugin-dialog`, `@tauri-apps/plugin-dialog`) shows the Windows Open and Save windows, and the page may only call it if the capability file lists `dialog:default`. Our own commands need no entry: a command registered in `generate_handler!` is open to every window of the app. We read and write with two small commands instead of `tauri-plugin-fs` because the fs plugin limits the paths a page may touch by scope, and a path the user picked in an earlier session or on another drive can fall outside it.
+See `src-tauri/capabilities/default.json:14`.
+
+## Checking the real window from a script: the WebView2 debug port
+
+`tauri dev` runs the page in WebView2, which is Edge. Start it with the environment variable `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` (and `WEBVIEW2_USER_DATA_FOLDER` pointing at a scratch folder, or WebView2 refuses to start next to another app that uses the default one), and Playwright can attach with `chromium.connectOverCDP("http://localhost:9222")`. Inside the page, `await import("/src/lib/files.ts")` loads the same module the app uses from Vite, so a script can call the real commands with the real IPC and check the file with Node. Native dialogs cannot be driven this way: `window.__TAURI_INTERNALS__.invoke` is read-only, so it cannot be faked, and a click on a dialog button opens a real dialog.
+See `src/tools/disc-studio/engine/fileActions.ts:85`.

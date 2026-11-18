@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { dragPosition, pointerToMm, roundToHundredths, wheelDirection, wheelEdit } from "./pointer";
+import {
+  brushAfterWheel,
+  dragPosition,
+  pointerToMm,
+  roundToHundredths,
+  wheelDirection,
+  wheelEdit,
+} from "./pointer";
 import type { ImageLayer, TextLayer } from "./project";
 
 const imageLayer: ImageLayer = {
@@ -113,5 +120,17 @@ describe("wheelEdit", () => {
   it("returns a new layer and leaves the old one alone", () => {
     wheelEdit(imageLayer, { direction: 1, rotate: true, fine: false });
     expect(imageLayer.rot).toBe(10);
+  });
+});
+
+describe("brushAfterWheel", () => {
+  it("grows 10% a step up and shrinks 10% a step down, to hundredths", () => {
+    expect(brushAfterWheel(5, 1)).toBe(5.5);
+    expect(brushAfterWheel(5, -1)).toBe(4.55);
+  });
+
+  it("never goes under 0.2 mm", () => {
+    expect(brushAfterWheel(0.2, -1)).toBe(0.2);
+    expect(brushAfterWheel(0.21, -1)).toBe(0.2);
   });
 });

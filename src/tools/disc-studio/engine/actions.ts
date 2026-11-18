@@ -20,6 +20,12 @@ import { prepareSvg } from "./svg";
 
 const IMAGE_OPEN_ERROR = "This image cannot be opened.";
 
+/** Where the screen shows what happened: a line in the status bar, or an error in a dialog. */
+export interface FileUi {
+  status(text: string): void;
+  error(message: string): void;
+}
+
 // #region Layers
 export function selectLayer(discDocument: DiscDocument, layer: Layer | null): void {
   discDocument.selected = layer;
@@ -133,11 +139,7 @@ async function imageSource(file: File): Promise<string> {
   return isSvgFile(file) ? prepareSvg(await file.text()) : readAsDataUrl(file);
 }
 
-async function addImageFile(
-  discDocument: DiscDocument,
-  file: File,
-  report: (text: string) => void,
-): Promise<void> {
+async function addImageFile(discDocument: DiscDocument, file: File, ui: FileUi): Promise<void> {
   const src = await imageSource(file);
   const img = await loadImage(src).catch(() => {
     throw new Error(IMAGE_OPEN_ERROR);
@@ -163,22 +165,33 @@ async function addImageFile(
     dpi: discDocument.settings.dpi,
     vector: isSvgFile(file),
   });
-  if (warning) report(warning);
+  if (warning) ui.status(warning);
 }
 
 /** Adds each image file as a layer, one after the other. A file that fails is reported and skipped. */
 export async function addImageFiles(
   discDocument: DiscDocument,
   files: Iterable<File>,
-  report: (text: string) => void,
+  ui: FileUi,
 ): Promise<void> {
   for (const file of files) {
     if (!isImageFile(file)) continue;
     try {
-      await addImageFile(discDocument, file, report);
+      await addImageFile(discDocument, file, ui);
     } catch (error) {
-      report(`${file.name}: ${error instanceof Error ? error.message : IMAGE_OPEN_ERROR}`);
+      ui.error(`${file.name}: ${error instanceof Error ? error.message : IMAGE_OPEN_ERROR}`);
     }
   }
+}
+/** Makes the image file the mask of the disc and switches the mask type to it. */
+export async function setUploadedMask(discDocument: DiscDocument, file: File): Promise<void> {
+  const src = await imageSource(file);
+  const img = await loadImage(src).catch(() => {
+    throw new Error(IMAGE_OPEN_ERROR);
+  });
+  discDocument.mask = { img, src };
+  discDocument.settings = { ...discDocument.settings, maskMode: "upload" };
+  discDocument.renderer.buildMasks();
+  discDocument.markChanged();
 }
 // #endregion

@@ -88,3 +88,34 @@ for (const fixtureName of FIXTURE_NAMES) {
     }
   });
 }
+
+// What Save project writes and Open project reads must give back the same canvas, byte for byte.
+const ROUND_TRIP_FIXTURES = FIXTURE_NAMES.filter((name) => /eraser|mask|text layers/.test(name));
+
+for (const fixtureName of ROUND_TRIP_FIXTURES) {
+  test(`save and reopen: ${fixtureName}`, async ({ browser }) => {
+    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL });
+    try {
+      const page = await context.newPage();
+      await page.goto(PORT_PAGE);
+      await page.waitForFunction(() => window.parity !== undefined, undefined, {
+        timeout: PAGE_READY_MS,
+      });
+      const { original, reopened } = await page.evaluate(
+        (name) =>
+          window.parity?.roundTrip?.(name) as Promise<{ original: Captured; reopened: Captured }>,
+        fixtureName,
+      );
+      expect(inkPixels(original.print), "the print has ink").toBeGreaterThan(0);
+      for (const canvasName of ["print", "view"] as const) {
+        expect(reopened[canvasName].width, `${canvasName} width`).toBe(original[canvasName].width);
+        expect(
+          differingPixels(original[canvasName], reopened[canvasName]),
+          `${canvasName}: pixels that differ`,
+        ).toBe(0);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+}

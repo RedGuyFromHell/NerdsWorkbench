@@ -1,17 +1,22 @@
 // The Disc Studio screen: settings on the left, the disc canvas in the middle, layers and
 // properties on the right. The canvas is drawn by the DiscDocument on requestAnimationFrame;
 // React only renders the panels, which follow the document through useDocumentVersion.
-import { useEffect, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import type { ToolContext } from "../types";
 import "../../styles/disc-fonts.css";
 import "./disc-studio.css";
-import { addImageFiles } from "./engine/actions";
+import { addImageFiles, type FileUi } from "./engine/actions";
 import { DiscDocument } from "./engine/document";
-import { attachPointer } from "./engine/pointer";
+import { attachKeys, attachPointer } from "./engine/pointer";
 import { AddPanel } from "./panels/AddPanel";
 import { DiscSettingsPanel } from "./panels/DiscSettings";
 import { LayerList } from "./panels/LayerList";
 import { LayerProperties } from "./panels/LayerProperties";
+import { ExportPanel } from "./panels/ExportPanel";
+import { ProjectPanel } from "./panels/ProjectPanel";
+import { ToolPanel } from "./panels/ToolPanel";
+import { Button } from "../../ui/Button";
+import { Dialog } from "../../ui/Dialog";
 import { SectionHeader } from "../../ui/SectionHeader";
 import { useDocumentVersion } from "./useDocumentVersion";
 
@@ -26,9 +31,13 @@ function EmptyHint({ doc }: { doc: DiscDocument }) {
 }
 
 export default function DiscStudio({ setStatus }: ToolContext) {
+  const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [doc, setDoc] = useState<DiscDocument | null>(null);
   const [dropping, setDropping] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // WHY: stable, so panels and effects that take it do not run again on every render.
+  const ui = useMemo<FileUi>(() => ({ status: setStatus, error: setErrorMessage }), [setStatus]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -49,6 +58,12 @@ export default function DiscStudio({ setStatus }: ToolContext) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!doc) return;
+    // WHY: an opened tool stays mounted while hidden (App.tsx), and its keys must not act then.
+    return attachKeys(doc, () => rootRef.current?.closest("[hidden]") === null);
+  }, [doc]);
+
   function onDragOver(event: DragEvent) {
     if (!carriesFiles(event)) return;
     event.preventDefault();
@@ -65,18 +80,24 @@ export default function DiscStudio({ setStatus }: ToolContext) {
     if (!carriesFiles(event)) return;
     event.preventDefault();
     setDropping(false);
-    if (doc) void addImageFiles(doc, Array.from(event.dataTransfer.files), setStatus);
+    if (doc) void addImageFiles(doc, Array.from(event.dataTransfer.files), ui);
   }
 
   return (
     <div
+      ref={rootRef}
       className={dropping ? "disc-studio disc-studio--dropping" : "disc-studio"}
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
       <aside className="disc-studio__side disc-studio__side--left">
-        {doc ? <DiscSettingsPanel doc={doc} /> : null}
+        {doc ? (
+          <>
+            <DiscSettingsPanel doc={doc} ui={ui} />
+            <ProjectPanel doc={doc} ui={ui} />
+          </>
+        ) : null}
       </aside>
       <main className="disc-studio__stage">
         <canvas ref={canvasRef} className="disc-studio__canvas" />
@@ -85,18 +106,30 @@ export default function DiscStudio({ setStatus }: ToolContext) {
       <aside className="disc-studio__side disc-studio__side--right">
         {doc ? (
           <>
-            <AddPanel doc={doc} />
+            <AddPanel doc={doc} ui={ui} />
+            <ToolPanel doc={doc} />
             <LayerList doc={doc} />
             <LayerProperties doc={doc} />
+            <ExportPanel doc={doc} ui={ui} />
             <section className="disc-panel">
-              <SectionHeader title="Mouse" />
+              <SectionHeader title="Mouse and keys" />
               <p className="disc-hint">
-                Drag = move · wheel = size · Shift + wheel = rotate · Alt = finer steps
+                Drag = move · wheel = size · Shift + wheel = rotate · Alt = finer steps · arrows =
+                nudge 0.1 mm (Shift: 1 mm) · Del = delete · Ctrl+D = copy
               </p>
             </section>
           </>
         ) : null}
       </aside>
+      {errorMessage ? (
+        <Dialog
+          title="Disc Studio"
+          onClose={() => setErrorMessage(null)}
+          actions={<Button onClick={() => setErrorMessage(null)}>OK</Button>}
+        >
+          <p>{errorMessage}</p>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

@@ -71,6 +71,15 @@ export function fitImageLayer(
 }
 // #endregion
 
+// #region Nudge
+const roundToHundredth = (value: number): number => Math.round(value * 100) / 100;
+
+/** The layer moved by (dx, dy) mm, to hundredths so repeated 0.1 steps do not drift. */
+export function nudgeLayer(layer: Layer, dx: number, dy: number): Layer {
+  return { ...layer, x: roundToHundredth(layer.x + dx), y: roundToHundredth(layer.y + dy) };
+}
+// #endregion
+
 // #region Eraser strokes
 const roundStrokeCoordinate = (value: number): number =>
   Math.round(value * STROKE_POINT_PRECISION) / STROKE_POINT_PRECISION;
@@ -104,5 +113,28 @@ export function addStrokePoint(stroke: Stroke, point: Point): Stroke {
     last !== undefined &&
     Math.hypot(next[0] - last[0], next[1] - last[1]) <= stroke.r * STROKE_THINNING_FACTOR;
   return tooClose ? stroke : { ...stroke, pts: [...stroke.pts, next] };
+}
+
+/** The layer with the stroke added after its others. */
+export function appendStroke(layer: Layer, stroke: Stroke): Layer {
+  return { ...layer, erase: [...(layer.erase ?? []), stroke] };
+}
+
+/** The layer with its last stroke swapped for `stroke` (the stroke being drawn grows by points). */
+export function replaceLastStroke(layer: Layer, stroke: Stroke): Layer {
+  const strokes = layer.erase ?? [];
+  if (strokes.length === 0) return layer;
+  return { ...layer, erase: [...strokes.slice(0, -1), stroke] };
+}
+
+/** The layer without its last stroke: what Ctrl+Z does. */
+export function undoStroke(layer: Layer): Layer {
+  const strokes = layer.erase ?? [];
+  if (strokes.length === 0) return layer;
+  return { ...layer, erase: strokes.slice(0, -1) };
+}
+
+export function clearStrokes(layer: Layer): Layer {
+  return { ...layer, erase: [] };
 }
 // #endregion

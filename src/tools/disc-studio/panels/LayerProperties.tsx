@@ -10,6 +10,7 @@ import { DEFAULT_TINT_COLOUR, TEXT_FONTS } from "../engine/addLayer";
 import type { DiscDocument } from "../engine/document";
 import { roundToHundredths } from "../engine/pointer";
 import type { ImageLayer, Layer, TextLayer } from "../engine/project";
+import { clearEraser } from "../engine/toolActions";
 import { Button } from "../../../ui/Button";
 import { Checkbox } from "../../../ui/Checkbox";
 import { ColorField } from "../../../ui/ColorField";
@@ -150,6 +151,11 @@ function CommonProperties({ doc, layer }: { doc: DiscDocument; layer: Layer }) {
         <Button onClick={() => centreSelected(doc)}>Centre</Button>
         <Button onClick={() => duplicateSelected(doc)}>Copy</Button>
       </div>
+      {layer.erase?.length ? (
+        <Button onClick={() => clearEraser(doc)}>
+          Clear eraser ({layer.erase.length} strokes)
+        </Button>
+      ) : null}
     </>
   );
 }

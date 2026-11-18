@@ -35,6 +35,7 @@ export class DiscDocument {
   selected: Layer | null = null;
   tool: Tool = "move";
   brushMm = 5; // eraser diameter
+  soft = 0; // eraser edge: 0 hard to 1 very soft
   hover: Point | null = null; // pointer in mm from the disc centre, shown as the brush outline
   nextId = 1;
   readonly renderer: DiscRenderer;
@@ -43,7 +44,7 @@ export class DiscDocument {
   private drawQueued = false;
   private readonly listeners = new Set<() => void>();
 
-  constructor(view: HTMLCanvasElement) {
+  constructor(readonly view: HTMLCanvasElement) {
     this.renderer = new DiscRenderer(this, view);
   }
 
@@ -72,6 +73,16 @@ export class DiscDocument {
     });
   }
   // #endregion
+
+  /** Everything a project file keeps. */
+  toProject(): DiscProject {
+    return {
+      settings: this.settings,
+      mask: this.mask?.src ?? null,
+      images: Object.fromEntries([...this.images].map(([id, loaded]) => [id, loaded.src])),
+      layers: this.layers,
+    };
+  }
 
   /** Replaces everything with a parsed project. A failed image load leaves the open one as it was. */
   async open(project: DiscProject): Promise<void> {

@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   addStrokePoint,
+  appendStroke,
+  clearStrokes,
   coverWidth,
   duplicateLayer,
   fitImageLayer,
   fitWidth,
   moveLayer,
+  nudgeLayer,
+  replaceLastStroke,
   startStroke,
+  undoStroke,
 } from "./layerOps";
 import type { ImageLayer, Layer, Stroke } from "./project";
 
@@ -182,5 +187,63 @@ describe("stroke points", () => {
   it("does not change the input stroke", () => {
     addStrokePoint(base, [0.31, 0]);
     expect(base.pts).toEqual([[0, 0]]);
+  });
+});
+
+describe("strokes on a layer", () => {
+  const first: Stroke = { mode: "erase", r: 0.1, soft: 0, pts: [[0, 0]] };
+  const second: Stroke = { mode: "restore", r: 0.2, soft: 0.5, pts: [[1, 1]] };
+  const plain = layerNamed(1, "plain");
+  const erased: Layer = { ...plain, erase: [first, second] };
+
+  it("appends a stroke to a layer that has none", () => {
+    expect(appendStroke(plain, first).erase).toEqual([first]);
+  });
+
+  it("appends after the strokes already there, leaving the input alone", () => {
+    expect(appendStroke({ ...plain, erase: [first] }, second).erase).toEqual([first, second]);
+    expect(plain.erase).toBeUndefined();
+  });
+
+  it("replaces only the last stroke", () => {
+    const longer: Stroke = {
+      ...second,
+      pts: [
+        [1, 1],
+        [2, 2],
+      ],
+    };
+    expect(replaceLastStroke(erased, longer).erase).toEqual([first, longer]);
+  });
+
+  it("leaves a layer with no strokes as it is when replacing the last one", () => {
+    expect(replaceLastStroke(plain, first)).toBe(plain);
+  });
+
+  it("undoes the last stroke", () => {
+    expect(undoStroke(erased).erase).toEqual([first]);
+  });
+
+  it("has nothing to undo on a layer without strokes", () => {
+    expect(undoStroke(plain)).toBe(plain);
+    expect(undoStroke({ ...plain, erase: [] }).erase).toEqual([]);
+  });
+
+  it("clears every stroke", () => {
+    expect(clearStrokes(erased).erase).toEqual([]);
+  });
+});
+
+describe("nudgeLayer", () => {
+  it("moves the layer by the step", () => {
+    const moved = nudgeLayer({ ...layerNamed(1, "a"), x: 5, y: -2 }, 1, 0);
+    expect([moved.x, moved.y]).toEqual([6, -2]);
+  });
+
+  it("rounds to hundredths, so repeated 0.1 steps do not drift", () => {
+    let layer: Layer = { ...layerNamed(1, "a"), x: 0.2 };
+    layer = nudgeLayer(layer, 0.1, 0);
+    expect(layer.x).toBe(0.3);
+    expect(nudgeLayer({ ...layer, y: 0.7 }, 0, 0.1).y).toBe(0.8);
   });
 });

@@ -147,7 +147,9 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
     canvas.style.cursor = layerAt(point) ? CURSOR_GRAB : "default";
   };
 
-  // WHY: a gesture that never ended would merge every later change into one undo step, so a cancelled pointer ends it too.
+  // WHY: a gesture that never ended would merge every later change into one undo step, so a cancelled
+  // pointer and a lost capture (the tool hidden mid-drag, no pointerup ever comes) end it too.
+  // Ending twice is harmless: a normal release fires pointerup and then lostpointercapture.
   const onPointerUp = (): void => {
     discDocument.endGesture();
     grab = null;
@@ -186,6 +188,7 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("lostpointercapture", onPointerUp);
   canvas.addEventListener("pointerleave", onPointerLeave);
   // WHY: a wheel listener is passive unless it says otherwise, and a passive one cannot stop the scroll.
   canvas.addEventListener("wheel", onWheel, { passive: false });
@@ -195,6 +198,7 @@ export function attachPointer(canvas: HTMLCanvasElement, discDocument: DiscDocum
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerup", onPointerUp);
     canvas.removeEventListener("pointercancel", onPointerUp);
+    canvas.removeEventListener("lostpointercapture", onPointerUp);
     canvas.removeEventListener("pointerleave", onPointerLeave);
     canvas.removeEventListener("wheel", onWheel);
     unsubscribe();

@@ -2,7 +2,10 @@ import { useEffect, useRef } from "react";
 import { onWindowCloseRequested, windowControls } from "../lib/platform";
 import type { CloseRequest } from "../lib/platform";
 
-const destroyWindow = () => void windowControls.destroy().catch(() => undefined);
+const destroyWindow = () =>
+  void windowControls.destroy().catch((error: unknown) => {
+    console.warn("The window could not be destroyed after the close was allowed.", error);
+  });
 
 /**
  * Asks before the window closes (the X button, Alt+F4 and the taskbar all raise the same request).
@@ -29,7 +32,8 @@ export function useCloseGuard(
         if (!latest.current.hasUnsavedWork()) return;
         request.preventDefault();
         latest.current.askBeforeClosing(destroyWindow);
-      } catch {
+      } catch (error) {
+        console.warn("The close guard failed; closing the window without asking.", error);
         // WHY: a bug here must never leave a window that cannot be closed.
         request.preventDefault();
         destroyWindow();
@@ -41,8 +45,10 @@ export function useCloseGuard(
         if (cancelled) stop();
         else unlisten = stop;
       },
-      // No hook: the window then closes without asking, as before this guard existed.
-      () => undefined,
+      // WHY: without the close hook nothing can stop the close, so the window closes without asking.
+      (error: unknown) => {
+        console.warn("The window close hook could not be set; closing will not ask.", error);
+      },
     );
     return () => {
       cancelled = true;

@@ -11,6 +11,7 @@ import {
   redo,
   resetHistory,
   sameContent,
+  sealHistory,
   undo,
   type DiscContent,
   type History,
@@ -335,5 +336,27 @@ describe("isDirty", () => {
     expect(isDirty(recordChange(resetHistory(saved), { ...saved, selectedId: 1 }, 0), saved)).toBe(
       false,
     );
+  });
+});
+
+describe("sealHistory", () => {
+  const start = withLayers([textLayer(1)]);
+
+  it("makes the next change of the same kind a new step, even inside the merge window", () => {
+    let history = recordChange(resetHistory(start), moved(start, 1, 1), 0);
+    history = sealHistory(history);
+    history = recordChange(history, moved(start, 1, 2), 10);
+    expect(history.past).toHaveLength(2);
+  });
+
+  it("without it the same two changes merge", () => {
+    let history = recordChange(resetHistory(start), moved(start, 1, 1), 0);
+    history = recordChange(history, moved(start, 1, 2), 10);
+    expect(history.past).toHaveLength(1);
+  });
+
+  it("changes nothing else", () => {
+    const history = recordChange(resetHistory(start), moved(start, 1, 1), 0);
+    expect(sealHistory(history)).toEqual({ ...history, sealed: true });
   });
 });

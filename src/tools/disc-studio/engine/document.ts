@@ -9,6 +9,7 @@ import {
   recordChange,
   redo,
   resetHistory,
+  sealHistory,
   undo,
   type DiscContent,
   type History,
@@ -115,9 +116,10 @@ export class DiscDocument {
     return isDirty(this.history, this.saved);
   }
 
-  /** The file holds `content` (what committed was when the write started). Tells the panels, so a watcher sees the flag flip. */
+  /** The file holds `content` (what committed was when the write started). Seals the history, so the next change is never merged into the step before the save. Tells the panels, so a watcher sees the flag flip. */
   markSaved(content: DiscContent): void {
     this.saved = content;
+    this.history = sealHistory(this.history);
     this.notify();
   }
 
@@ -129,11 +131,14 @@ export class DiscDocument {
     return this.history.future.length > 0;
   }
 
+  // WHY: a snapshot restored in the middle of a drag or an eraser stroke would be overwritten by the next move.
   undo(): void {
+    if (this.history.gesture !== "none") return;
     this.restoreMove(undo(this.history));
   }
 
   redo(): void {
+    if (this.history.gesture !== "none") return;
     this.restoreMove(redo(this.history));
   }
 

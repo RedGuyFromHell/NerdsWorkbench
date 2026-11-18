@@ -17,11 +17,12 @@ interface Prompt {
 }
 
 // The contract says save() never throws; a tool that breaks it must not leave the exit hanging.
-async function saved(work: UnsavedWork | undefined): Promise<boolean> {
+async function runSave(work: UnsavedWork | undefined): Promise<boolean> {
   if (!work) return true;
   try {
     return await work.save();
-  } catch {
+  } catch (error) {
+    console.warn("A tool's save threw; treated as a failed save.", error);
     return false;
   }
 }
@@ -47,21 +48,34 @@ export function useExitGuard(showTool: (id: ToolId) => void) {
 
   const continueWith = useCallback(
     (step: ExitStep, proceed: () => void) => {
-      if (step.kind === "ask") {
-        showTool(step.tool);
-        setPrompt({ tool: step.tool, pending: step.pending, proceed, saving: false });
-        return;
+      let stillAsking = false;
+      try {
+        if (step.kind === "ask") {
+          showTool(step.tool);
+          setPrompt({ tool: step.tool, pending: step.pending, proceed, saving: false });
+          stillAsking = true;
+          return;
+        }
+        if (step.kind === "proceed") proceed();
+      } finally {
+        // WHY: a throw from showTool or proceed must not leave `asking` set, or every later exit is ignored.
+        if (!stillAsking) {
+          asking.current = false;
+          setPrompt(null);
+        }
       }
-      asking.current = false;
-      setPrompt(null);
-      if (step.kind === "proceed") proceed();
     },
     [showTool],
   );
 
   const requestExit = useCallback(
     (exit: Exit, proceed: () => void) => {
-      if (asking.current) return;
+      if (asking.current) {
+        console.warn(
+          "An exit request came while the unsaved-work prompt was open; it was ignored.",
+        );
+        return;
+      }
       const step = askNext(planExit(exit, [...works.current.keys()]));
       if (step.kind === "proceed") {
         proceed();
@@ -79,7 +93,7 @@ export function useExitGuard(showTool: (id: ToolId) => void) {
       let outcome: ExitOutcome = choice === "skip" ? "skipped" : "cancelled";
       if (choice === "save") {
         setPrompt({ ...prompt, saving: true });
-        outcome = (await saved(works.current.get(prompt.tool))) ? "saved" : "saveFailed";
+        outcome = (await runSave(works.current.get(prompt.tool))) ? "saved" : "saveFailed";
       }
       continueWith(nextExitStep(prompt.pending, outcome), prompt.proceed);
     },

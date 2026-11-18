@@ -2,10 +2,14 @@
 
 export type Direction = "back" | "forward";
 
-/** The mouse side buttons: 3 is Back and 4 is Forward (the `button` of a mouse event). */
+// The `button` of a mouse event for the two side buttons.
+const MOUSE_BUTTON_BACK = 3;
+const MOUSE_BUTTON_FORWARD = 4;
+
+/** The mouse side buttons: Back and Forward. */
 export function sideButtonDirection(button: number): Direction | null {
-  if (button === 3) return "back";
-  if (button === 4) return "forward";
+  if (button === MOUSE_BUTTON_BACK) return "back";
+  if (button === MOUSE_BUTTON_FORWARD) return "forward";
   return null;
 }
 

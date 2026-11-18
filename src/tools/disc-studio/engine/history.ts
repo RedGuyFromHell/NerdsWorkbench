@@ -157,6 +157,11 @@ export function beginGesture(history: History): History {
 export function endGesture(history: History): History {
   return { ...history, gesture: "none", sealed: true };
 }
+
+/** The next change is never merged into the last step. A save does this: what the file holds is a boundary. */
+export function sealHistory(history: History): History {
+  return { ...history, sealed: true };
+}
 // #endregion
 
 // #region Walking

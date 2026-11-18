@@ -136,3 +136,8 @@ See `src-tauri/src/open_files.rs:43`.
 
 `app.emit("open-file", ())` sends an event to the page, which hears it with `listen` from `@tauri-apps/api/event` (the `core:default` capability already allows listening). An event is not stored: one sent before the page called `listen` is gone. So the event carries no data. The paths wait in the queue, and the page takes the queue once when it mounts and again on every event. It listens first, then takes, so a path that arrives in between is still picked up.
 See `src/app/openFiles.ts:38`.
+
+## The CSP must allow the IPC protocol, or raw bodies turn into JSON
+
+The page calls Rust with a `fetch` to Tauri's IPC protocol: `http://ipc.localhost` on Windows, `ipc:` on macOS and Linux. The app's Content Security Policy (`app.security.csp`) decides what the page may fetch. If `connect-src` is missing, `default-src 'self'` applies and blocks it. Tauri does not fail: it logs a warning and falls back to `window.ipc.postMessage`, which carries only JSON. Commands with JSON arguments still work, so nothing looks broken, but a raw body (`InvokeBody::Raw`) arrives as JSON and `write_file_bytes` refuses it. `tauri dev` serves the page from Vite without the CSP, so only the built app shows it. Our CSP lists `connect-src 'self' ipc: http://ipc.localhost`, and `src/lib/csp.test.ts` keeps it there.
+See `src-tauri/tauri.conf.json:27`.

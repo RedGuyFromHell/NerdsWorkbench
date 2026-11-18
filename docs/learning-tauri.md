@@ -179,3 +179,18 @@ A write must not leave half a file if the app is killed mid-write. So the text g
 
 A command that takes `app: AppHandle` cannot be called from a unit test, so each command is a thin wrapper over a function that takes the root folder as a parameter, and the tests run those against a fresh folder under the system temp folder.
 See `src-tauri/src/app_data.rs:82`.
+
+## Randomness as a parameter, and the system's secure generator
+
+`generateCodes` does not call a random function itself: it receives one (`randomIndex`) and the tests pass a scripted or seeded one, so every run draws the same codes and a repeated code can be forced on purpose. In the real app the default is `crypto.getRandomValues`, the web view's secure random source (Python's `random` was not secure, and voucher codes should be hard to guess). A plain `% 10` on a 32-bit random number slightly favours low digits, so draws above the largest whole multiple are thrown away and drawn again.
+See `src/tools/voucher/core/codeGen.ts:22`.
+
+## Python's `round` and `//` are not JavaScript's
+
+The old app was Python, and a port must put every pixel in the same place. Python's `round(2.5)` gives 2 (an exact half goes to the even neighbour, "banker's rounding") while `Math.round(2.5)` gives 3, so `roundHalfToEven` exists. Python's `//` rounds towards minus infinity, which is `Math.floor`; `Math.round` and `Math.trunc` both differ on a half or a negative. Each call site is decided on its own and pinned by a test whose value would give a different answer.
+See `src/tools/voucher/core/roundHalfToEven.ts:4`.
+
+## Proving a test by putting the bug back
+
+A test that passes tells you little until you have seen it fail. After the code works, change one line on purpose (swap `Math.floor` for `Math.round`, drop a `> 0` check), run that test file, and watch it go red; then restore the line. This slice did it for every rule, and it found one test (the "ten times" boundary) that stayed green with the rule changed, so a case was added. It is a hand-made version of what mutation-testing tools automate.
+See `src/tools/voucher/core/codeLayout.test.ts:32`.

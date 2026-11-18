@@ -132,3 +132,12 @@ The installer registers `.nerd` for the current user, so a double-click opens th
 Only one copy of the app runs. If it is already open, a second launch (the double-click) does not start a second window: the running window comes to the front and opens the file. Rust queues the paths (`src-tauri/src/open_files.rs`) and the page takes them (`src/app/openFiles.ts`); the decision of which tool gets a file is in `src/app/routeOpenFile.ts`, with tests.
 
 The page reads and writes files through two Rust commands (`read_file_bytes`, `write_file_bytes` in `src-tauri/src/files.rs`) that carry the bytes as a raw request body, with the paths coming from the Windows dialogs. In a plain browser (the Vite URL) the file buttons show "Files can only be opened and saved in the desktop app."
+
+## Voucher Generator
+
+Makes a batch of unique discount codes, creates the matching discount in Shopify, and renders one voucher image per code. The decisions (code generation, text layout, the code-area selection, the discount input, the code batches) are plain functions in `src/tools/voucher/core/` and `src/tools/voucher/shopify/`, each with a test beside it.
+
+Two Shopify pitfalls from the old app:
+
+- **`DiscountCodeBasicInput` has no `codes` array.** The first code goes in the singular `code` field when the discount is created; every other code is added afterwards with `discountRedeemCodeBulkAdd`, in batches of at most 250.
+- **`discountRedeemCodeBulkAdd` has no `DiscountCodeBulkCreation` type.** An inline fragment `... on DiscountCodeBulkCreation` fails, so do not poll the bulk creation with a `node(id)` query. The codes are queued and Shopify creates them in the background.

@@ -97,17 +97,24 @@ export function saveProjectAt(discDocument: DiscDocument, path: string): Promise
   return writeFileBytes(path, new TextEncoder().encode(serializeProject(discDocument.toProject())));
 }
 
-export function saveProjectToDisk(discDocument: DiscDocument, ui: FileUi): Promise<void> {
-  return guarded(ui, async () => {
+/** True once the file is written. False when the Save dialog was cancelled or the write failed (the error is already in ui.error). */
+export async function saveProjectToDisk(discDocument: DiscDocument, ui: FileUi): Promise<boolean> {
+  let written = false;
+  await guarded(ui, async () => {
     const path = await pickSaveFile({
       title: "Save the project",
       defaultName: safeFileName(discDocument.settings.name) + PROJECT_EXTENSION,
       filters: [SAVE_PROJECT_FILTER],
     });
     if (!path) return;
+    // WHY: what the file holds is what the document was when the write started, not when it ended.
+    const saved = discDocument.committed;
     await saveProjectAt(discDocument, path);
+    discDocument.markSaved(saved);
     ui.status(`Saved ${fileNameOf(path)}.`);
+    written = true;
   });
+  return written;
 }
 // #endregion
 

@@ -4,6 +4,7 @@ import {
   beginGesture,
   changeKey,
   endGesture,
+  isDirty,
   MAX_HISTORY_STEPS,
   MERGE_WINDOW_MS,
   recordChange,
@@ -305,5 +306,34 @@ describe("resetHistory", () => {
     const history = resetHistory(withLayers([textLayer(1)]));
     expect(undo(history)).toBeNull();
     expect(redo(history)).toBeNull();
+  });
+});
+
+describe("isDirty", () => {
+  const saved = withLayers([textLayer(1)]);
+
+  it("is clean for the content that was saved", () => {
+    expect(isDirty(resetHistory(saved), saved)).toBe(false);
+  });
+
+  it("is dirty after a content change", () => {
+    const changed = recordChange(resetHistory(saved), moved(saved, 1, 2), 0);
+    expect(isDirty(changed, saved)).toBe(true);
+  });
+
+  it("is clean again when an undo walks back to the saved content", () => {
+    const changed = recordChange(resetHistory(saved), moved(saved, 1, 2), 0);
+    const walked = undo(changed);
+    expect(walked && isDirty(walked.history, saved)).toBe(false);
+  });
+
+  it("is dirty again after a redo, and ignores a selection alone", () => {
+    const changed = recordChange(resetHistory(saved), moved(saved, 1, 2), 0);
+    const walked = undo(changed);
+    const again = walked && redo(walked.history);
+    expect(again && isDirty(again.history, saved)).toBe(true);
+    expect(isDirty(recordChange(resetHistory(saved), { ...saved, selectedId: 1 }, 0), saved)).toBe(
+      false,
+    );
   });
 });

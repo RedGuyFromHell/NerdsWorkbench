@@ -59,7 +59,11 @@ export function useShellNavigation({ onTool, goHome, move }: ShellNavigation): v
         dialogOpen: dialogIsOpen(),
         typing: isTypingTarget(event.target),
       });
-      if (goesHome) latest.current.goHome();
+      if (!goesHome) return;
+      // WHY: the unsaved-work dialog may open inside this very keydown. Without preventDefault the
+      // browser then applies the same Escape to the new dialog and cancels it at once.
+      event.preventDefault();
+      latest.current.goHome();
     };
 
     for (const type of SIDE_BUTTON_EVENTS) window.addEventListener(type, onSideButton, true);

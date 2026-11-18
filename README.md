@@ -88,6 +88,10 @@ They work while Disc Studio is on screen and the focus is not in a field or a me
 | Wheel over the disc        | Resize the layer (brush size with Eraser or Restore)  |
 | Shift + wheel, Alt + wheel | Turn the layer; finer steps (see above)               |
 
+### Unsaved work
+
+Disc Studio counts as having unsaved work from the first change after a save or an open until the next Save project (Export PNG does not count as a save; undoing back to the saved state clears it). Every way out of a tool with unsaved work asks first, in a message window with _Save_, _Don't save_ and _Cancel_: Escape, the mouse Back and Forward buttons, the _< HOME_ button, closing the window (the X button, Alt+F4 or the taskbar) and _Update now_. _Cancel_, a cancelled Save dialog and a failed save keep you where you are. _Don't save_ only leaves: going home keeps the work in the tool until the window closes, and Back (or the tile) brings you back to it. Windows shutdown and log-off cannot ask. A new tool takes part by calling `setUnsavedWork` from its `ToolContext` (`src/tools/types.ts`).
+
 ### The parity test
 
 `render.ts` must draw the same pixels as the original `disc-studio.html`. `tests/disc-parity/` proves it: for each fixture project (`fixtures.ts`, built on a canvas in the page) a Playwright test renders it through an unchanged copy of the original (`reference/disc-studio.html`) and through the engine (`parity.html`), then compares the print and the view canvas byte for byte. There is no tolerance. Run it with:

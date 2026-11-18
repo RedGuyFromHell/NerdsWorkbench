@@ -155,3 +155,18 @@ See `src/app/useShellNavigation.ts:40`.
 ## Pressing a side button from a script: CDP `Input.dispatchMouseEvent`
 
 Playwright's `page.mouse` has only left, middle and right. Through the WebView2 debug port a script can open a raw Chrome DevTools Protocol session (`context.newCDPSession(page)`) and send `Input.dispatchMouseEvent` with `button: "back"` or `"forward"`, once as `mousePressed` and once as `mouseReleased` (with `buttons` 8 or 16 while pressed). The browser turns it into the same trusted events a real mouse makes, so a check of the built app can press the side buttons without moving the real mouse. A real mouse on the real window is still the final proof.
+
+## Close requests: asking before the window goes
+
+Every way of closing the window (the X button of our own title bar, Alt+F4, the taskbar) ends as one **close request** inside Tauri. `getCurrentWindow().onCloseRequested(handler)` runs our function first; if the function calls `event.preventDefault()`, the window stays open, and if it does not, the API closes the window itself. That is the whole trick of the unsaved-work prompt: `useCloseGuard` stops the request when a tool has unsaved work, shows the dialog, and closes the window later by hand. The handler runs in the page, not in Rust, because only the page knows what is unsaved. It is a bit like `Application.wantsToQuit` in Unity. Two traps: the handler must call `preventDefault` at once (the API awaits it, then checks the flag), and a handler that throws leaves the window open, so ours has a `try/catch` that destroys the window instead.
+See `src/app/useCloseGuard.ts:11`.
+
+## `destroy` and its capability: why the close hook needs one more line
+
+`window.close()` only raises a close request (that is what our hook listens to), so closing from inside the hook would ask again forever. `window.destroy()` ends the window for good with no request. The same API code calls `destroy()` itself whenever a handler does not prevent the close, and the capability `core:default` does not allow `destroy`. So the moment `onCloseRequested` is registered, a window with no `core:window:allow-destroy` in `src-tauri/capabilities/default.json` can never close: the call is refused and the window stays. Capabilities are an allow list: a command the file does not name is blocked, and a bug of that kind only shows when you try it.
+See `src-tauri/capabilities/default.json:10`.
+
+## Why a release build can differ from `tauri dev`
+
+`tauri dev` loads the page from the Vite server and applies almost none of the release rules: no Content Security Policy, and the capability files are checked more loosely. A release build (`tauri build --no-bundle` makes just the exe, with no installer) embeds the page, enforces the CSP and the capability allow list, and is what the installed app is. The 0.6.1 fix (the CSP blocked the IPC fetch) was invisible in dev for that reason, and a missing `allow-destroy` would be too. So anything that touches the window, the CSP or capabilities is checked on the release exe, through the WebView2 debug port, before it is trusted. A throwaway `identifier` in a `--config` file keeps that test build from sharing data with the installed app.
+See `docs/learning-tauri.md` (the debug port entry above) and `src-tauri/tauri.conf.json:27`.

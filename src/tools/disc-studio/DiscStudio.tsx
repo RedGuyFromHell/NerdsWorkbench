@@ -7,7 +7,7 @@ import "../../styles/disc-fonts.css";
 import "./disc-studio.css";
 import { addImageFiles, type FileUi } from "./engine/actions";
 import { DiscDocument } from "./engine/document";
-import { openProjectFromPath } from "./engine/fileActions";
+import { openProjectFromPath, saveProjectToDisk } from "./engine/fileActions";
 import { attachKeys, attachPointer } from "./engine/pointer";
 import { AddPanel } from "./panels/AddPanel";
 import { DiscSettingsPanel } from "./panels/DiscSettings";
@@ -31,7 +31,7 @@ function EmptyHint({ doc }: { doc: DiscDocument }) {
   return <p className="disc-studio__empty">Drop images here, or use “Add image”.</p>;
 }
 
-export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
+export default function DiscStudio({ openRequest, setStatus, setUnsavedWork }: ToolContext) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [doc, setDoc] = useState<DiscDocument | null>(null);
@@ -67,6 +67,24 @@ export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
     handledNonce.current = openRequest.nonce;
     void openProjectFromPath(doc, openRequest.path, ui);
   }, [doc, openRequest, ui]);
+
+  // Tells the shell while the design differs from the last save or open (an undo back to it clears it).
+  useEffect(() => {
+    if (!doc) return;
+    const work = { save: () => saveProjectToDisk(doc, ui) };
+    let reported = false;
+    const follow = () => {
+      const dirty = doc.isDirty();
+      if (dirty === reported) return;
+      reported = dirty;
+      setUnsavedWork(dirty ? work : null);
+    };
+    const unsubscribe = doc.subscribe(follow);
+    return () => {
+      unsubscribe();
+      setUnsavedWork(null);
+    };
+  }, [doc, ui, setUnsavedWork]);
 
   useEffect(() => {
     if (!doc) return;

@@ -96,6 +96,11 @@ export function changeKey(before: DiscContent, after: DiscContent): string | nul
 }
 // #endregion
 
+/** True when the committed content differs from `saved`, the content of the last save or open. Undo back to it is clean again. */
+export function isDirty(history: History, saved: DiscContent): boolean {
+  return !sameContent(history.present, saved);
+}
+
 // #region Recording
 export function resetHistory(content: DiscContent): History {
   return {

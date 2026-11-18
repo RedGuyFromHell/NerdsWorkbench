@@ -5,6 +5,7 @@ import { TEXT_MEASURE_SCALE, type Point } from "./geometry";
 import {
   beginGesture,
   endGesture,
+  isDirty,
   recordChange,
   redo,
   resetHistory,
@@ -52,6 +53,7 @@ export class DiscDocument {
   readonly renderer: DiscRenderer;
 
   private history: History;
+  private saved: DiscContent; // the content of the last save or open; isDirty compares against it
   private version = 0;
   private drawQueued = false;
   private readonly listeners = new Set<() => void>();
@@ -59,6 +61,7 @@ export class DiscDocument {
   constructor(readonly view: HTMLCanvasElement) {
     this.renderer = new DiscRenderer(this, view);
     this.history = resetHistory(this.content());
+    this.saved = this.history.present;
   }
 
   // #region Store
@@ -72,9 +75,13 @@ export class DiscDocument {
   /** Call after changing any field: records an undo step if the content changed, tells the panels and queues a redraw. */
   markChanged(): void {
     this.history = recordChange(this.history, this.content(), performance.now());
+    this.notify();
+    this.requestDraw();
+  }
+
+  private notify(): void {
     this.version++;
     for (const listener of this.listeners) listener();
-    this.requestDraw();
   }
 
   /** Draws once on the next frame, however many times it is called before then. */
@@ -96,6 +103,22 @@ export class DiscDocument {
 
   endGesture(): void {
     this.history = endGesture(this.history);
+  }
+
+  /** The content as last recorded: take it before writing a file, and hand it to markSaved after. */
+  get committed(): DiscContent {
+    return this.history.present;
+  }
+
+  /** True when the content differs from the last save or open. Export PNG does not count as a save. */
+  isDirty(): boolean {
+    return isDirty(this.history, this.saved);
+  }
+
+  /** The file holds `content` (what committed was when the write started). Tells the panels, so a watcher sees the flag flip. */
+  markSaved(content: DiscContent): void {
+    this.saved = content;
+    this.notify();
   }
 
   get canUndo(): boolean {
@@ -171,6 +194,7 @@ export class DiscDocument {
     this.nextId = nextLayerId(this.layers, images.keys());
     this.renderer.buildMasks();
     this.history = resetHistory(this.content());
+    this.saved = this.history.present;
     this.markChanged();
   }
 }

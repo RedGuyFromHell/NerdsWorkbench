@@ -41,3 +41,13 @@ See `src/styles/fonts.css:5`.
 
 `corepack pnpm dev` alone serves the page at http://localhost:1420 without the Rust window. Calls to the window API would fail there, so `src/lib/platform.ts` checks `isTauri()` first and loads the Tauri modules only inside the real window. In a browser the buttons do nothing and the status bar says "web preview", which is enough to check the layout in any browser.
 See `src/lib/platform.ts:4`.
+
+## The updater: signing, `latest.json` and the plugins
+
+Self-update has three parts. First, a key pair made once with `tauri signer generate`: the private half signs each release build (it lives in GitHub secrets, never in the repo), the public half sits in `tauri.conf.json` under `plugins.updater.pubkey`, so an installed app can check that an update really comes from us. Second, `bundle.createUpdaterArtifacts: true` makes `tauri build` also write a `.sig` signature file next to the installer. Third, the release workflow publishes the installer, the `.sig` and a small `latest.json` (version, notes, download URL, signature) on a GitHub Release. The `endpoints` URL in the config points at `releases/latest/download/latest.json`, which GitHub always redirects to the newest release. On start, the page calls `check()` from `@tauri-apps/plugin-updater`; it fetches that file, compares versions and, if newer, `downloadAndInstall()` downloads, verifies the signature and runs the installer (`installMode: "passive"` shows a small progress window, no questions). Then `relaunch()` from `@tauri-apps/plugin-process` restarts the app. Lose the private key and no installed copy can ever accept an update again.
+See `src/app/update/updateCheck.ts:74`.
+
+## Plugins, capabilities and the per-user installer
+
+A Tauri plugin has two halves that must both be wired: a Rust crate registered in the builder (`tauri_plugin_updater`, `tauri_plugin_process` in `src-tauri/src/lib.rs`) and a JavaScript package the page imports. Its commands are blocked until the capability file allows them: `updater:default` (check, download, install) and `process:allow-restart` (relaunch). The installer itself is NSIS, and `bundle.windows.nsis.installMode: "currentUser"` makes it install under `%LOCALAPPDATA%` instead of Program Files, so there is no admin (UAC) prompt, and the updater can replace the app later without one either.
+See `src-tauri/capabilities/default.json:10`.

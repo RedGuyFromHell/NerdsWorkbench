@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import type { ReactNode } from "react";
-import type { ToolColour } from "../tools/types";
+import type { ReactNode, SyntheticEvent } from "react";
 import { RetroTitleBar, RetroWindow } from "./RetroWindow";
+import type { BarColour } from "./RetroWindow";
 
 interface DialogProps {
   title: string;
-  colour?: ToolColour;
+  colour?: BarColour;
   /** Called for the close box and for the Escape key. */
   onClose(): void;
   /** Buttons for the bottom row, usually Buttons. */
@@ -23,6 +23,13 @@ export function Dialog({ title, colour = "yellow", onClose, actions, children }:
     if (dialog && !dialog.open) dialog.showModal();
   }, []);
 
+  // WHY: without preventDefault the browser closes the <dialog> itself on Escape, while the parent
+  // still renders it. The parent decides (it may refuse, mid-download) and unmounts it.
+  const cancel = (event: SyntheticEvent) => {
+    event.preventDefault();
+    onClose();
+  };
+
   const closeBox = (
     <button
       type="button"
@@ -37,7 +44,7 @@ export function Dialog({ title, colour = "yellow", onClose, actions, children }:
   );
 
   return (
-    <dialog ref={dialogRef} className="dialog" onCancel={onClose} aria-label={title}>
+    <dialog ref={dialogRef} className="dialog" onCancel={cancel} aria-label={title}>
       <RetroWindow
         floating
         titleBar={<RetroTitleBar title={title} colour={colour} controls={closeBox} />}

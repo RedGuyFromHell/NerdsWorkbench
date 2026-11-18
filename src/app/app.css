@@ -172,3 +172,47 @@
 .statusbar__version {
   color: var(--muted);
 }
+
+/* The gear button at the left of the status bar: opens Settings. */
+.statusbar__gear {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.statusbar__gear:hover {
+  background: var(--muted-bg);
+}
+
+.statusbar__gear:active {
+  transform: translate(1px, 1px);
+}
+
+/* ---------- Settings and the update prompt ---------- */
+
+.settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings__placeholder {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.update-notes {
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: var(--field);
+  border: var(--border);
+  white-space: pre-wrap;
+}

@@ -3,8 +3,11 @@ import { getTool, TOOLS } from "../tools/registry";
 import type { ToolDefinition, ToolId } from "../tools/types";
 import { RetroTitleBar, RetroWindow } from "../ui/RetroWindow";
 import { HomeGrid } from "./HomeGrid";
+import { SettingsWindow } from "./settings/SettingsWindow";
 import { StatusBar } from "./StatusBar";
 import { TitleBar } from "./TitleBar";
+import { UpdatePrompt } from "./update/UpdatePrompt";
+import { useUpdates } from "./update/useUpdates";
 
 interface ToolHostProps {
   tool: ToolDefinition;
@@ -33,6 +36,8 @@ export function App() {
   const [activeId, setActiveId] = useState<ToolId | null>(null);
   // Every tool opened so far, in the order of opening. A tool stays here until the app closes.
   const [openedIds, setOpenedIds] = useState<readonly ToolId[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const updates = useUpdates();
   const [statuses, setStatuses] = useState<Partial<Record<ToolId, string>>>({});
 
   const openTool = useCallback((id: ToolId) => {
@@ -49,7 +54,12 @@ export function App() {
   return (
     <RetroWindow
       titleBar={<TitleBar onHome={activeTool ? () => setActiveId(null) : null} />}
-      footer={<StatusBar text={activeId === null ? "" : (statuses[activeId] ?? "")} />}
+      footer={
+        <StatusBar
+          text={(activeId === null ? "" : statuses[activeId]) || updates.notice}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      }
     >
       <div className="home-host" hidden={activeTool !== null}>
         <HomeGrid tools={TOOLS} onOpen={openTool} />
@@ -57,6 +67,10 @@ export function App() {
       {openedIds.map((id) => (
         <ToolHost key={id} tool={getTool(id)} visible={id === activeId} onStatus={setToolStatus} />
       ))}
+      {settingsOpen ? (
+        <SettingsWindow checkForUpdates={updates.checkNow} onClose={() => setSettingsOpen(false)} />
+      ) : null}
+      {updates.offered ? <UpdatePrompt update={updates.offered} onClose={updates.dismiss} /> : null}
     </RetroWindow>
   );
 }

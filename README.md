@@ -143,12 +143,12 @@ The app connects through a Shopify app of your own, made in the Shopify Dev Dash
 
 1. In the Dev Dashboard, create an app (or open the existing one) and make a version with:
    - redirect URL `http://localhost:8765/callback`, exactly like that (not `127.0.0.1`, no trailing slash);
-   - scopes `read_price_rules`, `write_price_rules`, `read_discounts`, `write_discounts`, `read_products`.
+   - scopes `read_price_rules`, `write_price_rules`, `read_discounts`, `write_discounts`, `read_products`, `read_orders`.
 2. Install the app on the store.
 3. In Nerd's Workbench, open Settings and fill in the store (`your-store.myshopify.com`), the app's client ID and its client secret.
 4. Press _Connect to Shopify_. The browser opens Shopify's approval page; approve within two minutes. The browser tab then says "Approved" and the Settings window says "Connected".
 
-If port 8765 is taken by another program, Connect says so: close that program and connect again. The port is only open while a connect is waiting, on this PC only (`127.0.0.1` and `::1`), and it closes after the first answer.
+If port 8765 is taken by another program, Connect says so: close that program and connect again. The port is only open while a connect is waiting, on this PC only (`127.0.0.1` and `::1`), no other program can share it, and it closes after the first answer that belongs to this connect. Any other request gets a 404.
 
 ### Where the secrets live
 
@@ -158,7 +158,11 @@ If port 8765 is taken by another program, Connect says so: close that program an
 
 ### Coming from the old app
 
-The old PyQt app kept all of this, token and secret included, as plain text in `~/.nerdworkbench/config.json`. The first start of this app imports it once: the token and the secret go to Windows Credential Manager, then the old file is rewritten without those two keys, then `settings.json` is written. If Credential Manager refuses, the old file is left untouched and the next start tries again. The Settings window says when the import happened, or why it failed.
+The old PyQt app kept all of this, token and secret included, as plain text in `~/.nerdworkbench/config.json`. The first start of this app imports it: the token and the secret go to Windows Credential Manager, then the old file is rewritten without those two keys, then `settings.json` is written. If Credential Manager refuses, the old file is left untouched and the next start tries again. The Settings window says when the import happened, or why it failed.
+
+Every later start looks again. If the old file holds a token or a secret once more (the old app ran, or a sync or a backup put the file back), they are taken out again. What the app already holds in Credential Manager is kept, and an old token is only stored when the old file names the same store as Settings.
+
+After the import, if the old file was ever synced (OneDrive, Dropbox) or backed up, its copies still hold the client secret as plain text. Rotate the client secret in the Dev Dashboard, enter the new one in Settings and connect again.
 
 ### Disconnecting
 

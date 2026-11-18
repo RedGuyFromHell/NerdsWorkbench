@@ -40,6 +40,14 @@ getrandom = "0.3.4"
 # WHY: Shopify signs the OAuth callback with HMAC-SHA256 of the client secret.
 hmac = "0.13.0"
 sha2 = "0.11.1"
+# WHY: compares the OAuth state without telling, by timing, how much of a guess was right.
+subtle = "2.6.1"
+# WHY: the OAuth listener's sockets are made by hand so the port can be taken exclusively.
+socket2 = "0.6.5"
+
+[target.'cfg(windows)'.dependencies]
+# WHY: SO_EXCLUSIVEADDRUSE, which socket2 has no setter for. The version socket2 already builds.
+windows-sys = { version = "0.61.2", features = ["Win32_Networking_WinSock"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"

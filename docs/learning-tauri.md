@@ -198,12 +198,12 @@ See `src/tools/voucher/core/codeLayout.test.ts:32`.
 ## Async commands: work that waits must not block the window
 
 A command written as a plain `fn` runs on the main thread, the one that also draws the window, so it must return at once. A command written as `async fn` runs on Tauri's async runtime (tokio) instead, and can `.await` an HTTP call for seconds while the window stays alive. Our Shopify commands are all `async`. One rule comes with it: an async command that borrows something (such as `State<'_, T>`) must return a `Result`.
-See `src-tauri/src/shopify/oauth.rs:354`.
+See `src-tauri/src/shopify/oauth.rs:472`.
 
 ## `spawn_blocking`: old-style waiting inside async code
 
 The OAuth listener waits up to two minutes for the browser, with plain blocking sockets (`std::net`) and a short sleep between looks. Doing that directly inside an `async fn` would freeze one of the runtime's few worker threads. `tauri::async_runtime::spawn_blocking` moves the closure to a separate pool made for blocking work and gives back something to `.await`. It is the Rust cousin of `Task.Run` around a blocking call in C#.
-See `src-tauri/src/shopify/oauth.rs:381`.
+See `src-tauri/src/shopify/oauth.rs:500`.
 
 ## The keyring crate and a trait as the test seam
 
@@ -214,3 +214,8 @@ See `src-tauri/src/secrets.rs:11`.
 
 `app.manage(value)` can also be called inside `setup`, when the value needs the app itself to be computed. The import of the old config runs there once, and its outcome is managed as `OldConfigImport`. It never changes afterwards, so it needs no `Mutex`: the `shopify_status` command just reads it through `State<'_, OldConfigImport>` each time the Settings window asks.
 See `src-tauri/src/lib.rs:54`.
+
+## socket2 and an exclusive port: making the socket by hand
+
+`TcpListener::bind` makes the socket, binds it and starts listening in one call, so there is no moment to set an option in between. The `socket2` crate gives the three steps apart: `Socket::new`, then options, then `bind` and `listen`, and `socket.into()` turns the result into a normal `TcpListener`. We need that moment for `SO_EXCLUSIVEADDRUSE`, the Windows option that keeps every other socket off the same address and port (Windows' `SO_REUSEADDR` lets a second program share a port, which on Linux it does not). `socket2` has no setter for it, so one call goes to the Windows API itself through `windows-sys`, inside an `unsafe` block: `unsafe` means "the compiler cannot check this call, the `// SAFETY:` comment says why it is sound". It is the only one in the app. The test reads the option back with `getsockopt`, because a second bind that Windows refuses anyway would prove nothing.
+See `src-tauri/src/shopify/oauth.rs:285`.

@@ -2452,6 +2452,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
+ "socket2",
+ "subtle",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2462,6 +2464,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "url",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

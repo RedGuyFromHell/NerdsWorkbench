@@ -1,6 +1,6 @@
 // The app-wide settings file (`settings.json` in the app config folder): which Shopify store, which
-// app client id, which API version. No secret is ever written here. Also owns the one-time import
-// of the old PyQt app's config file, which did hold the token and the client secret as plain text.
+// app client id, which API version. No secret is ever written here. Also owns the import of the
+// old PyQt app's config file, which did hold the token and the client secret as plain text.
 use crate::secrets::{CredentialManager, SHOPIFY_CLIENT_SECRET, SHOPIFY_TOKEN, SecretStore};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -139,7 +139,7 @@ const OLD_CLIENT_SECRET_KEY: &str = "shopify_client_secret";
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ImportOutcome {
-    /// No old config file, or this app already has its own settings file.
+    /// No old config file, or one that holds no secret while this app has its own settings file.
     NotNeeded,
     Imported,
 }
@@ -147,24 +147,53 @@ pub enum ImportOutcome {
 /// What the import at start did, kept for the whole run so the Settings window can say it.
 pub struct OldConfigImport(pub Result<ImportOutcome, String>);
 
-/// Takes over the old app's config, once: the token and the client secret go to the secret store,
-/// then the old file is rewritten without them, then this app's settings file is written.
+/// Takes over the old app's config: the token and the client secret go to the secret store, then
+/// the old file is rewritten without them, then (the first time only) this app's settings file is
+/// written.
 /// WARNING: the order is the safety. The old file loses its two secrets only after both are stored,
-/// and the settings file (whose existence means "already imported") is written last, so a failure
-/// at any step leaves nothing lost and the next start tries again.
+/// and the settings file is written last, so a failure at any step leaves nothing lost and the
+/// next start tries again.
+/// WHY: the secrets are moved out whenever the old file holds them, not only the first time. The
+/// old app, a sync tool or a restored backup can put the plain-text file back.
 pub fn import_old_config(
     old_config: &Path,
     settings_file: &Path,
     secrets: &dyn SecretStore,
 ) -> Result<ImportOutcome, String> {
-    if settings_file.exists() {
+    let Some(mut old) = read_old_config(old_config)? else {
+        return Ok(ImportOutcome::NotNeeded);
+    };
+    let current = if settings_file.exists() {
+        Some(load(settings_file)?)
+    } else {
+        None
+    };
+    let holds_secrets = old.contains_key(OLD_TOKEN_KEY) || old.contains_key(OLD_CLIENT_SECRET_KEY);
+    if current.is_some() && !holds_secrets {
         return Ok(ImportOutcome::NotNeeded);
     }
+
+    move_secrets_out(&old, current.as_ref(), secrets).map_err(|error| {
+        format!(
+            "Cannot move the old Shopify secrets to the Credential Manager, so the old              config file was left as it is: {error}"
+        )
+    })?;
+    old.remove(OLD_TOKEN_KEY);
+    old.remove(OLD_CLIENT_SECRET_KEY);
+    rewrite_old_config(old_config, &old)?;
+    if current.is_none() {
+        save(settings_file, &settings_from_old(&old))?;
+    }
+    Ok(ImportOutcome::Imported)
+}
+
+type OldConfig = serde_json::Map<String, serde_json::Value>;
+
+/// The old config file's content, or `None` when there is no such file.
+fn read_old_config(old_config: &Path) -> Result<Option<OldConfig>, String> {
     let text = match std::fs::read_to_string(old_config) {
         Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(ImportOutcome::NotNeeded);
-        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => {
             return Err(format!(
                 "Cannot read the old Workbench config file: {error}"
@@ -172,33 +201,55 @@ pub fn import_old_config(
         }
     };
     // WHY: the parser's own message can quote a piece of the file, and this file holds secrets.
-    let mut old: OldConfig = serde_json::from_str(&text).map_err(|_| {
+    serde_json::from_str(&text).map(Some).map_err(|_| {
         "The old Workbench config file is not valid JSON; nothing was imported.".to_string()
-    })?;
+    })
+}
 
+/// Stores the old file's two secrets. `current` is this app's settings when it is already set up.
+fn move_secrets_out(
+    old: &OldConfig,
+    current: Option<&Settings>,
+    secrets: &dyn SecretStore,
+) -> Result<(), String> {
     for (old_key, entry) in [
         (OLD_CLIENT_SECRET_KEY, SHOPIFY_CLIENT_SECRET),
         (OLD_TOKEN_KEY, SHOPIFY_TOKEN),
     ] {
-        let secret = old_text(&old, old_key);
+        let secret = old_text(old, old_key);
         if secret.is_empty() {
             continue;
         }
-        secrets.set(entry, &secret).map_err(|error| {
-            format!(
-                "Cannot move the old Shopify secrets to the Credential Manager, so the old \
-                 config file was left as it is: {error}"
-            )
-        })?;
+        if !takes_old_secret(entry, old, current, secrets)? {
+            log::warn!(
+                "the old config's {entry} was dropped, not stored: this app holds its own, or                  the old one is for another store"
+            );
+            continue;
+        }
+        secrets.set(entry, &secret)?;
     }
-    old.remove(OLD_TOKEN_KEY);
-    old.remove(OLD_CLIENT_SECRET_KEY);
-    rewrite_old_config(old_config, &old)?;
-    save(settings_file, &settings_from_old(&old))?;
-    Ok(ImportOutcome::Imported)
+    Ok(())
 }
 
-type OldConfig = serde_json::Map<String, serde_json::Value>;
+/// True when a secret of the old file belongs in the secret store. On the first import, always.
+/// WHY: once this app is set up, what it stored itself is newer than the old file, so only an
+/// empty entry is filled. And a token is only good at the store that issued it, so the old token
+/// is kept only when the old file names the store that is in Settings.
+fn takes_old_secret(
+    entry: &str,
+    old: &OldConfig,
+    current: Option<&Settings>,
+    secrets: &dyn SecretStore,
+) -> Result<bool, String> {
+    let Some(current) = current else {
+        return Ok(true);
+    };
+    if secrets.get(entry)?.is_some() {
+        return Ok(false);
+    }
+    let old_store = old_text(old, OLD_STORE_KEY).to_ascii_lowercase();
+    Ok(entry != SHOPIFY_TOKEN || old_store == current.shopify_store)
+}
 
 /// A text value of the old config, trimmed; empty when missing or not text.
 fn old_text(old: &OldConfig, key: &str) -> String {
@@ -319,6 +370,12 @@ mod tests {
   "shopify_client_secret": "old-secret-value",
   "api_version": "2025-10",
   "window_width": 900
+}"#;
+
+    const OLD_CONFIG_WITHOUT_SECRETS: &str = r#"{
+  "shopify_store": "example-shop.myshopify.com",
+  "shopify_client_id": "old-client-id",
+  "api_version": "2025-10"
 }"#;
 
     struct Folders {
@@ -491,7 +548,7 @@ mod tests {
         );
         assert!(!no_old_file.settings_file.exists());
 
-        let already_set_up = folders_with_old_config(Some(OLD_CONFIG));
+        let already_set_up = folders_with_old_config(Some(OLD_CONFIG_WITHOUT_SECRETS));
         save(&already_set_up.settings_file, &Settings::default()).unwrap();
         assert_eq!(
             import_old_config(
@@ -503,9 +560,111 @@ mod tests {
         );
         assert_eq!(
             std::fs::read_to_string(&already_set_up.old_config).unwrap(),
+            OLD_CONFIG_WITHOUT_SECRETS
+        );
+        assert_eq!(
+            load(&already_set_up.settings_file).unwrap(),
+            Settings::default()
+        );
+    }
+
+    fn set_up_for(store: &str) -> Folders {
+        let folders = folders_with_old_config(Some(OLD_CONFIG));
+        let settings = Settings {
+            shopify_store: store.to_string(),
+            shopify_client_id: "new-client-id".to_string(),
+            ..Settings::default()
+        };
+        save(&folders.settings_file, &settings).unwrap();
+        folders
+    }
+
+    fn assert_old_file_holds_no_secret(folders: &Folders) {
+        let rewritten = std::fs::read_to_string(&folders.old_config).unwrap();
+        assert!(!rewritten.contains("shopify_token"), "{rewritten}");
+        assert!(!rewritten.contains("shopify_client_secret"), "{rewritten}");
+        assert!(rewritten.contains("old-client-id"), "{rewritten}");
+    }
+
+    #[test]
+    fn secrets_left_in_the_old_file_move_out_when_this_app_is_already_set_up() {
+        let folders = set_up_for("example-shop.myshopify.com");
+        let settings_before = std::fs::read_to_string(&folders.settings_file).unwrap();
+        let secrets = MemoryStore::default();
+
+        let outcome = import_old_config(&folders.old_config, &folders.settings_file, &secrets);
+
+        assert_eq!(outcome, Ok(ImportOutcome::Imported));
+        assert_eq!(
+            secrets.secret(SHOPIFY_TOKEN).as_deref(),
+            Some("old-token-value")
+        );
+        assert_eq!(
+            secrets.secret(SHOPIFY_CLIENT_SECRET).as_deref(),
+            Some("old-secret-value")
+        );
+        assert_old_file_holds_no_secret(&folders);
+        assert_eq!(
+            std::fs::read_to_string(&folders.settings_file).unwrap(),
+            settings_before
+        );
+    }
+
+    #[test]
+    fn an_entry_this_app_already_holds_is_not_replaced_by_the_old_file() {
+        let folders = set_up_for("example-shop.myshopify.com");
+        let secrets = MemoryStore::with(&[
+            (SHOPIFY_TOKEN, "new-token-value"),
+            (SHOPIFY_CLIENT_SECRET, "new-secret-value"),
+        ]);
+
+        let outcome = import_old_config(&folders.old_config, &folders.settings_file, &secrets);
+
+        assert_eq!(outcome, Ok(ImportOutcome::Imported));
+        assert_eq!(
+            secrets.secret(SHOPIFY_TOKEN).as_deref(),
+            Some("new-token-value")
+        );
+        assert_eq!(
+            secrets.secret(SHOPIFY_CLIENT_SECRET).as_deref(),
+            Some("new-secret-value")
+        );
+        assert_old_file_holds_no_secret(&folders);
+    }
+
+    #[test]
+    fn an_old_token_for_another_store_than_the_one_in_settings_is_not_kept() {
+        let folders = set_up_for("other-shop.myshopify.com");
+        let secrets = MemoryStore::default();
+
+        let outcome = import_old_config(&folders.old_config, &folders.settings_file, &secrets);
+
+        assert_eq!(outcome, Ok(ImportOutcome::Imported));
+        assert_eq!(secrets.secret(SHOPIFY_TOKEN), None);
+        assert_eq!(
+            secrets.secret(SHOPIFY_CLIENT_SECRET).as_deref(),
+            Some("old-secret-value")
+        );
+        assert_old_file_holds_no_secret(&folders);
+    }
+
+    #[test]
+    fn the_old_file_keeps_its_secrets_when_a_set_up_app_cannot_store_them() {
+        let folders = set_up_for("example-shop.myshopify.com");
+        let secrets = MemoryStore {
+            fail_on: Some(SHOPIFY_TOKEN),
+            ..MemoryStore::default()
+        };
+
+        let outcome = import_old_config(&folders.old_config, &folders.settings_file, &secrets);
+
+        let error = outcome.unwrap_err();
+        assert!(error.contains("was left as it is"), "{error}");
+        assert!(!error.contains("old-token-value") && !error.contains("old-secret-value"));
+        assert_eq!(
+            std::fs::read_to_string(&folders.old_config).unwrap(),
             OLD_CONFIG
         );
-        assert_eq!(secrets.secret(SHOPIFY_TOKEN), None);
     }
 
     #[test]

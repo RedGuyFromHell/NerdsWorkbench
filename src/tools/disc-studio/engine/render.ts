@@ -84,9 +84,9 @@ export class DiscRenderer implements BoxSource {
   }
 
   // #region Measuring
-  imageHeightOverWidth(imageId: string): number {
+  imageNaturalSize(imageId: string): Box {
     const { img } = this.imageOf(imageId);
-    return img.naturalHeight / img.naturalWidth;
+    return { width: img.naturalWidth, height: img.naturalHeight };
   }
 
   measureLine(layer: TextLayer, line: string): number {

@@ -101,8 +101,8 @@ export function guideRadii(settings: MaskSettings & Pick<DiscSettings, "maskMode
 
 // #region Layer geometry
 export interface BoxSource {
-  /** Natural height divided by natural width of an image. */
-  imageHeightOverWidth(imageId: string): number;
+  /** The natural pixel size of an image. */
+  imageNaturalSize(imageId: string): Box;
   /** Width in pixels of one text line, measured at font size TEXT_MEASURE_SCALE. */
   measureLine(layer: TextLayer, line: string): number;
 }
@@ -110,7 +110,9 @@ export interface BoxSource {
 /** A layer's width and height in mm, before rotation. */
 export function layerBox(layer: Layer, source: BoxSource): Box {
   if (layer.type === "image") {
-    return { width: layer.w, height: layer.w * source.imageHeightOverWidth(layer.img) };
+    // WHY: w * nh / nw, not w * (nh / nw): the HTML's order, which can differ in the last bit.
+    const natural = source.imageNaturalSize(layer.img);
+    return { width: layer.w, height: (layer.w * natural.height) / natural.width };
   }
   const lines = layer.text.split("\n");
   const widest = Math.max(...lines.map((line) => source.measureLine(layer, line)));

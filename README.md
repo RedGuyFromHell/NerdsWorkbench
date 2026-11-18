@@ -59,7 +59,17 @@ The first run compiles Tauri from scratch and takes several minutes. Later runs 
 
 ## Disc Studio
 
-Disc Studio designs a printable disc (a coaster or a badge): images and text on layers, a mask, an eraser, and a print PNG with the dpi written in. It is a port of `disc-studio.html`. Its pure logic is already here, in `src/tools/disc-studio/engine/`: `geometry.ts` (disc and layer maths), `maskAlpha.ts`, `pngDpi.ts`, `project.ts` (the file format, read with zod), `svg.ts` and `layerOps.ts`, each with a Vitest test beside it. `document.ts` holds the open document (settings, layers, images, mask, `subscribe` and `getVersion` for React) and `render.ts` draws it. The screen comes in the next slices.
+Disc Studio designs a printable disc (a coaster or a badge): images and text on layers, a mask, an eraser, and a print PNG with the dpi written in. It is a port of `disc-studio.html`. Its code is in `src/tools/disc-studio/`: the pure logic and the drawing in `engine/` (`geometry.ts`, `maskAlpha.ts`, `pngDpi.ts`, `project.ts` for the file format read with zod, `svg.ts`, `layerOps.ts`, `addLayer.ts` for what a new layer starts with, `pointer.ts` for the mouse), each with a Vitest test beside it, then `document.ts` (the open document, with `subscribe` and `getVersion` for React), `render.ts` (the drawing) and `actions.ts` (what the screen does to the document), and the screen in `DiscStudio.tsx` with its `panels/`.
+
+### Using the screen
+
+Three columns under the pink tool bar.
+
+- **Left, settings.** _Disc (mm)_: diameter, hole, bleed and DPI. _Mask_: the type (the built-in mask, or none, which prints on the whole disc) and, for the built-in one, its margin, the band at the bottom and the band's curve. _View_: guides (cut and safe lines), the red tint on the no-ink zones, the PLA colour and the background colour. A disc or mask change rebuilds the masks; the view options only redraw.
+- **Middle, the disc.** The canvas shows the print as it will come out, on bare PLA. Drag a layer to move it. The wheel over the canvas resizes the selected layer (an image's width, a text's size) by 3% a step; hold Alt for 0.5% steps. Shift + wheel turns it by 1 degree a step, Alt + Shift by 0.1.
+- **Right, layers.** _Add text_ adds a text layer in the middle of the mask's band. To add an image, drop a PNG, JPG or SVG file on the window (a drop highlights the canvas area); several files at once work. The first layer is clipped to the mask, later ones to the whole disc. _Layers_ lists the layers top first: the box shows or hides one, the name selects it, the arrows move it up or down, and the red cross deletes it. Below it, the properties of the selected layer: for text its words, font, size, spacing, colour, outline, bold and italic; for an image its width, _Cover disc_ and _Fit in disc_, and _Recolour_ (one colour, for logos); for both the position from the centre, rotation, opacity, what it is clipped to, mirror, _Centre_ and _Copy_.
+
+A picture that has fewer pixels than the print needs (below 95% of its width at the chosen DPI) shows a warning in the status bar. Not here yet: the eraser, keyboard shortcuts, opening and saving projects, an uploaded mask and the export.
 
 ### The parity test
 

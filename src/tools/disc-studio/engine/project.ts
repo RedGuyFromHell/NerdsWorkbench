@@ -93,6 +93,20 @@ export interface DiscProject {
 
 export const DEFAULT_SETTINGS: Readonly<DiscSettings> = settingsSchema.parse({});
 
+// The settings that only change what is drawn on top, not the disc or the mask canvases.
+const VIEW_ONLY_SETTINGS: readonly (keyof DiscSettings)[] = [
+  "guides",
+  "zones",
+  "pla",
+  "bg",
+  "name",
+];
+
+/** Whether changing this setting means the masks must be rebuilt (not only a redraw). */
+export function settingNeedsMaskRebuild(key: keyof DiscSettings): boolean {
+  return !VIEW_ONLY_SETTINGS.includes(key);
+}
+
 // #region Reading and writing
 const NOT_A_PROJECT = "Not a Disc Studio project.";
 const NEWER_VERSION = "This project was saved by a newer version of Nerd's Workbench.";

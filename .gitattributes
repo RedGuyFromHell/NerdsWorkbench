@@ -1,3 +1,5 @@
 .githooks/* text eol=lf
 *.woff2 binary
 *.icns binary
+# The parity reference is a byte copy of the original page: no line-ending conversion on checkout.
+tests/disc-parity/reference/* -text

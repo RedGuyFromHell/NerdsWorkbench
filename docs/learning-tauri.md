@@ -76,3 +76,23 @@ See `tests/disc-parity/parity.spec.ts:15`.
 
 Comparing screenshots usually needs a tolerance, because two machines draw anti-aliased edges a little differently. Here both images come from the same browser process on the same machine in the same minute, so the only thing that can differ is our code. That is why the test accepts zero differing pixels: a difference is a real bug, not noise. The test also checks that the reference print is not empty, because two blank canvases would be equal too.
 See `tests/disc-parity/parity.spec.ts:64`.
+
+## useSyncExternalStore: React reading a store that is not React's
+
+The Disc Studio document is a plain TypeScript object that changes in place, dozens of times a second while you drag a layer. React does not know about it, so each panel calls `useDocumentVersion`, which is `useSyncExternalStore(doc.subscribe, doc.getVersion)`: React calls `subscribe` once to be told when something changed, and asks `getVersion` for a number; when the number differs from the last one, it renders the panel again, and the panel reads the layers straight off the document. It is like a C# `INotifyPropertyChanged` event plus a version counter, instead of copying every layer into React state (a copy that could drift from the real one).
+See `src/tools/disc-studio/useDocumentVersion.ts:6`.
+
+## requestAnimationFrame: draw once per frame, never from a render
+
+The canvas is not drawn by React. `DiscDocument.requestDraw()` asks the browser for a callback before the next screen frame (`requestAnimationFrame`) and ignores further calls until that frame has run, so ten pointer moves in one frame cost one drawing. It is like marking a Unity object dirty and letting the frame loop redraw it, not calling `Draw()` on every input event. React re-renders only the small panels; the expensive canvas work stays outside it.
+See `src/tools/disc-studio/engine/document.ts:69`.
+
+## HTML5 file drop with dragDropEnabled false
+
+Tauri can catch a dropped file itself and give the app a list of paths. We turned that off (`dragDropEnabled: false` in `tauri.conf.json`), so the webview behaves like a normal web page: a drop reaches our `onDrop` handler as a browser `File` object whose bytes we read with `FileReader` or `file.text()`, exactly like the original HTML did. The handler must call `preventDefault` on `dragover` and on `drop`, or the browser would open the file in the window instead.
+See `src/tools/disc-studio/DiscStudio.tsx:52`.
+
+## A wheel listener that can stop the scroll
+
+Browsers treat a `wheel` listener as passive: it may not call `preventDefault`, so the page can scroll smoothly without waiting for the handler. React's `onWheel` is passive, so the canvas listener is added by hand with `addEventListener("wheel", handler, { passive: false })`, and removed again in the cleanup function that `attachPointer` returns (the same idea as unsubscribing a C# event handler in `Dispose`).
+See `src/tools/disc-studio/engine/pointer.ts:140`.

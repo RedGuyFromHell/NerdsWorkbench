@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, nextLayerId, parseProject, serializeProject } from "./project";
+import {
+  DEFAULT_SETTINGS,
+  nextLayerId,
+  parseProject,
+  serializeProject,
+  settingNeedsMaskRebuild,
+} from "./project";
 
 // A project file exactly as disc-studio.html writes it: app and v, settings under "S".
 const HTML_V1_FILE = JSON.stringify({
@@ -230,5 +236,28 @@ describe("nextLayerId", () => {
 
   it("reads the ids of a parsed project", () => {
     expect(nextLayerId(parseProject(HTML_V1_FILE).layers, ["i1", "i4"])).toBe(5);
+  });
+});
+
+describe("settingNeedsMaskRebuild", () => {
+  it("is true for every setting that changes the disc or the mask", () => {
+    for (const key of [
+      "d",
+      "hole",
+      "bleed",
+      "dpi",
+      "maskMode",
+      "margin",
+      "band",
+      "curve",
+    ] as const) {
+      expect(settingNeedsMaskRebuild(key)).toBe(true);
+    }
+  });
+
+  it("is false for the view options and the file name, which only need a redraw", () => {
+    for (const key of ["guides", "zones", "pla", "bg", "name"] as const) {
+      expect(settingNeedsMaskRebuild(key)).toBe(false);
+    }
   });
 });

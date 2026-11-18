@@ -158,13 +158,20 @@ const IMAGE_BASE: ImageLayer = {
 };
 
 const source: BoxSource = {
-  imageHeightOverWidth: (imageId) => (imageId === "i1" ? 0.5 : 2),
+  imageNaturalSize: (imageId) =>
+    imageId === "i1" ? { width: 200, height: 100 } : { width: 100, height: 200 },
   measureLine: (_layer, line) => line.length * 70, // pixels at font size 10
 };
 
 describe("layerBox", () => {
   it("keeps the image width and scales the height by the image ratio", () => {
     expect(layerBox(IMAGE_BASE, source)).toEqual({ width: 40, height: 20 });
+  });
+
+  it("computes the image height as w * nh / nw, the order the HTML uses, to the last bit", () => {
+    // WHY: 10 * (1 / 3) is 3.333333333333333 but 10 * 1 / 3 is 3.3333333333333335.
+    const thirds: BoxSource = { ...source, imageNaturalSize: () => ({ width: 3, height: 1 }) };
+    expect(layerBox({ ...IMAGE_BASE, w: 10 }, thirds).height).toBe(3.3333333333333335);
   });
 
   it("measures the widest text line at font size 10, divides by 10 and adds 0.01", () => {

@@ -3,11 +3,13 @@ interface CheckboxProps {
   checked: boolean;
   onChange(checked: boolean): void;
   disabled?: boolean;
+  /** Draws only the box; the label stays for screen readers. For a row that has its own text. */
+  boxOnly?: boolean;
 }
 
-export function Checkbox({ label, checked, onChange, disabled }: CheckboxProps) {
+export function Checkbox({ label, checked, onChange, disabled, boxOnly }: CheckboxProps) {
   return (
-    <label className="checkbox">
+    <label className={boxOnly ? "checkbox checkbox--box-only" : "checkbox"}>
       <input
         type="checkbox"
         className="checkbox__input"

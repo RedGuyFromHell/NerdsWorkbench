@@ -55,6 +55,12 @@
       "fast": false
     },
     {
+      "name": "disc-parity",
+      "command": "corepack pnpm exec playwright test",
+      "level": "fail",
+      "fast": false
+    },
+    {
       "name": "secrets",
       "command": "gitleaks git --no-banner --redact",
       "level": "fail",

@@ -19,7 +19,7 @@ See `vite.config.ts:9`.
 
 ## What a Tauri command is, and `invoke`
 
-The page cannot touch the disk or the system by itself. A Tauri command is a Rust function marked `#[tauri::command]` and registered in the builder; the page calls it with `invoke("name", { args })`, which returns a promise, a bit like calling a method across a process boundary. This slice has no commands yet: the next slices add the file ones. Until then `src/lib/platform.ts` tells the UI whether it runs in the Tauri window or in a plain browser.
+The page cannot touch the disk or the system by itself. A Tauri command is a Rust function marked `#[tauri::command]` and registered in the builder; the page calls it with `invoke("name", { args })`, which returns a promise, a bit like calling a method across a process boundary. Our first commands are the two file ones in `src-tauri/src/files.rs`, registered with `generate_handler!` in `lib.rs`; `src/lib/files.ts` wraps them. `src/lib/platform.ts` tells the UI whether it runs in the Tauri window or in a plain browser, and the file wrappers throw one clear error in a browser.
 See `src-tauri/src/lib.rs:1`.
 
 ## A custom title bar: `decorations: false` and the drag region
@@ -51,3 +51,88 @@ See `src/app/update/updateCheck.ts:74`.
 
 A Tauri plugin has two halves that must both be wired: a Rust crate registered in the builder (`tauri_plugin_updater`, `tauri_plugin_process` in `src-tauri/src/lib.rs`) and a JavaScript package the page imports. Its commands are blocked until the capability file allows them: `updater:default` (check, download, install) and `process:allow-restart` (relaunch). The installer itself is NSIS, and `bundle.windows.nsis.installMode: "currentUser"` makes it install under `%LOCALAPPDATA%` instead of Program Files, so there is no admin (UAC) prompt, and the updater can replace the app later without one either.
 See `src-tauri/capabilities/default.json:10`.
+
+## zod at the boundary: reading a project file
+
+A file from the disk is just text until we check it. `parseProject` in `src/tools/disc-studio/engine/project.ts` is the one place where that happens: `JSON.parse` gives `unknown`, a **zod** schema checks every field, fills the missing settings with defaults, and returns a typed `DiscProject`. After that the rest of the code trusts the types and checks nothing again, much like deserialising JSON into a C# class once, at the edge. A damaged file fails loudly with the path of the broken field (`layers.0.x`) instead of crashing later in the drawing code. The TypeScript types (`Layer`, `DiscSettings`) are derived from the schema with `z.infer`, so the schema and the types cannot drift apart.
+See `src/tools/disc-studio/engine/project.ts:117`.
+
+## happy-dom: a browser DOM for one test file
+
+Vitest runs tests in Node, which has no `document` and no `DOMParser`. Most of our tests need neither, so they run in plain Node (fast). `svg.ts` does need a DOM, so its test file starts with the comment `// @vitest-environment happy-dom`: Vitest then gives only that file a small fake browser from the `happy-dom` package, and every other file keeps the plain environment. It is like putting one test into a different Unity test assembly instead of changing the whole project. happy-dom is not a real browser: it proves our logic, and the pixel-exact drawing is proven separately against the original HTML.
+See `src/tools/disc-studio/engine/svg.test.ts:1`.
+
+## WebView2 is Edge, and why the parity test uses the installed Edge
+
+A Tauri window on Windows is a **WebView2** control, which is the Microsoft Edge browser engine (Chromium) embedded in an app, much like a Unity `WebView` or a C# `WebView2` control. So canvas drawing in our app behaves like canvas drawing in Edge. **Playwright** drives a real browser from a test: `channel: "msedge"` in `playwright.config.ts` tells it to start the Edge already installed on the PC instead of downloading its own Chromium, so the test runs on the same engine as the app. The Disc Studio parity test renders the same project through the original HTML and through our code in that Edge and compares every pixel.
+See `playwright.config.ts:12`.
+
+## Playwright serves the page through Vite, and routes the fonts
+
+The parity test needs two pages: the original `disc-studio.html` and our own `parity.html`. `webServer` in the Playwright config starts the Vite dev server first (on port 1421, because 1420 belongs to `tauri dev`), so both pages and the TypeScript they import are served by it. The original asks Google Fonts for its fonts; `context.route(...)` catches that request inside the test and answers with our bundled `@font-face` rules, so no test touches the network and both pages draw with the same font files. It is like pointing a C# `HttpClient` at a fake handler in a unit test.
+See `tests/disc-parity/parity.spec.ts:15`.
+
+## Why a byte-exact pixel comparison is allowed here
+
+Comparing screenshots usually needs a tolerance, because two machines draw anti-aliased edges a little differently. Here both images come from the same browser process on the same machine in the same minute, so the only thing that can differ is our code. That is why the test accepts zero differing pixels: a difference is a real bug, not noise. The test also checks that the reference print is not empty, because two blank canvases would be equal too.
+See `tests/disc-parity/parity.spec.ts:64`.
+
+## useSyncExternalStore: React reading a store that is not React's
+
+The Disc Studio document is a plain TypeScript object that changes in place, dozens of times a second while you drag a layer. React does not know about it, so each panel calls `useDocumentVersion`, which is `useSyncExternalStore(doc.subscribe, doc.getVersion)`: React calls `subscribe` once to be told when something changed, and asks `getVersion` for a number; when the number differs from the last one, it renders the panel again, and the panel reads the layers straight off the document. It is like a C# `INotifyPropertyChanged` event plus a version counter, instead of copying every layer into React state (a copy that could drift from the real one).
+See `src/tools/disc-studio/useDocumentVersion.ts:6`.
+
+## requestAnimationFrame: draw once per frame, never from a render
+
+The canvas is not drawn by React. `DiscDocument.requestDraw()` asks the browser for a callback before the next screen frame (`requestAnimationFrame`) and ignores further calls until that frame has run, so ten pointer moves in one frame cost one drawing. It is like marking a Unity object dirty and letting the frame loop redraw it, not calling `Draw()` on every input event. React re-renders only the small panels; the expensive canvas work stays outside it.
+See `src/tools/disc-studio/engine/document.ts:69`.
+
+## HTML5 file drop with dragDropEnabled false
+
+Tauri can catch a dropped file itself and give the app a list of paths. We turned that off (`dragDropEnabled: false` in `tauri.conf.json`), so the webview behaves like a normal web page: a drop reaches our `onDrop` handler as a browser `File` object whose bytes we read with `FileReader` or `file.text()`, exactly like the original HTML did. The handler must call `preventDefault` on `dragover` and on `drop`, or the browser would open the file in the window instead.
+See `src/tools/disc-studio/DiscStudio.tsx:52`.
+
+## A wheel listener that can stop the scroll
+
+Browsers treat a `wheel` listener as passive: it may not call `preventDefault`, so the page can scroll smoothly without waiting for the handler. React's `onWheel` is passive, so the canvas listener is added by hand with `addEventListener("wheel", handler, { passive: false })`, and removed again in the cleanup function that `attachPointer` returns (the same idea as unsubscribing a C# event handler in `Dispose`).
+See `src/tools/disc-studio/engine/pointer.ts:140`.
+
+## Raw IPC bodies: sending bytes without a number array
+
+`invoke("cmd", { args })` sends JSON. A file as JSON is a list of numbers, roughly ten times the size, and slow to build. A command can instead take the whole request: in Rust `write_file_bytes(request: tauri::ipc::Request)` matches `request.body()` against `InvokeBody::Raw(bytes)`, and in the page the second argument of `invoke` is the bytes themselves (a `Uint8Array`), with the options as the third. The other way, a command that returns `tauri::ipc::Response::new(bytes)` gives the page an `ArrayBuffer`. A 1.5 MB round trip works in the real window. A raw body has no named arguments, so anything else the command needs (here the path) travels in a request header.
+See `src-tauri/src/files.rs:52`.
+
+## A path in an HTTP header: percent-encoding
+
+Header values are ASCII, and a path can hold spaces, `ș`, `ț`, `#` and `%`. The page writes the path with `encodeURIComponent` (every unsafe byte becomes `%XX` of its UTF-8) and Rust undoes it in `percent_decode`, which accepts only two hex digits after a `%` and demands valid UTF-8. A `%` in the path itself becomes `%25`, so it round-trips. `src/lib/files.test.ts` and the cargo tests pin both sides with the same examples.
+See `src/lib/files.ts:31`.
+
+## Capabilities for the dialogs, and why not the fs plugin
+
+The dialog plugin (`tauri-plugin-dialog`, `@tauri-apps/plugin-dialog`) shows the Windows Open and Save windows, and the page may only call it if the capability file lists `dialog:default`. Our own commands need no entry: a command registered in `generate_handler!` is open to every window of the app. We read and write with two small commands instead of `tauri-plugin-fs` because the fs plugin limits the paths a page may touch by scope, and a path the user picked in an earlier session or on another drive can fall outside it.
+See `src-tauri/capabilities/default.json:14`.
+
+## Checking the real window from a script: the WebView2 debug port
+
+`tauri dev` runs the page in WebView2, which is Edge. Start it with the environment variable `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` (and `WEBVIEW2_USER_DATA_FOLDER` pointing at a scratch folder, or WebView2 refuses to start next to another app that uses the default one), and Playwright can attach with `chromium.connectOverCDP("http://localhost:9222")`. Inside the page, `await import("/src/lib/files.ts")` loads the same module the app uses from Vite, so a script can call the real commands with the real IPC and check the file with Node. Native dialogs cannot be driven this way: `window.__TAURI_INTERNALS__.invoke` is read-only, so it cannot be faked, and a click on a dialog button opens a real dialog.
+See `src/tools/disc-studio/engine/fileActions.ts:85`.
+
+## Command-line arguments: how Explorer hands a file to the app
+
+Double-clicking a file with an associated extension runs `app.exe "C:pathile.nerd"`: the path is just an argument after the executable's own name. `std::env::args()` lists them, so `paths_from_args` skips the first one and anything starting with `-`. A path with spaces or `ș` arrives as one whole argument, because Windows quotes it. `bundle.fileAssociations` only tells the installer to register the extension; the app itself must read its arguments.
+See `src-tauri/src/open_files.rs:18`.
+
+## Single instance: the second launch talks to the first
+
+Without help, every double-click starts another copy. `tauri-plugin-single-instance` lets the first copy keep running: a second launch exits at once and calls a callback **in the first copy** with its arguments and working folder. Our callback queues the paths and brings the window to the front (`unminimize`, `show`, `set_focus`). The plugin must be registered before every other plugin, so the second launch dies before it opens anything.
+See `src-tauri/src/lib.rs:15`.
+
+## Managed state: data shared by commands
+
+`Builder::manage(value)` puts one value in the app for good; a command asks for it with a parameter `State<'_, T>` and Tauri fills it in. Commands run on several threads, so a value that changes sits behind a `Mutex`. Ours is the queue of paths waiting for the page (`PendingOpenFiles`), and `take_pending_open_files` empties it with `std::mem::take`.
+See `src-tauri/src/open_files.rs:43`.
+
+## Events: Rust tells the page, and the race with the first render
+
+`app.emit("open-file", ())` sends an event to the page, which hears it with `listen` from `@tauri-apps/api/event` (the `core:default` capability already allows listening). An event is not stored: one sent before the page called `listen` is gone. So the event carries no data. The paths wait in the queue, and the page takes the queue once when it mounts and again on every event. It listens first, then takes, so a path that arrives in between is still picked up.
+See `src/app/openFiles.ts:38`.

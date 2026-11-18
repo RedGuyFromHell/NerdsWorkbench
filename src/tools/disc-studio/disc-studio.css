@@ -1,0 +1,163 @@
+/* The Disc Studio screen: three columns under the tool bar. Colours come from styles/tokens.css. */
+
+.disc-studio {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 300px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* The side columns scroll on their own when the window is short. */
+.disc-studio__side {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+  background: var(--paper);
+}
+
+.disc-studio__side--left {
+  border-right: var(--border);
+}
+
+.disc-studio__side--right {
+  border-left: var(--border);
+}
+
+/* The stage is a size container, so the canvas can take the largest square that fits. */
+.disc-studio__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+  background-color: var(--desk);
+  background-image: radial-gradient(circle at 1px 1px, var(--dot) 1.5px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.disc-studio--dropping .disc-studio__stage {
+  outline: 3px dashed var(--focus);
+  outline-offset: -8px;
+}
+
+/* WHY: an outline, not a border: the pointer maths reads the canvas's box, and a border would shift it. */
+.disc-studio__canvas {
+  width: min(100cqw - 40px, 100cqh - 40px);
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--radius);
+  outline: var(--border);
+  box-shadow: var(--shadow-hard);
+  touch-action: none;
+}
+
+.disc-studio__empty {
+  position: absolute;
+  padding: 6px 12px;
+  background: var(--paper);
+  border: var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.disc-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.disc-panel__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.disc-buttons {
+  display: flex;
+  flex-wrap: wrap; /* two long labels (Save project, Open project) go one under the other in a narrow column */
+  gap: 10px;
+}
+
+.disc-buttons .retro-button {
+  flex: 1 1 auto;
+  padding: 0 8px;
+}
+
+.disc-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- Layer list ---------- */
+
+.layer-list {
+  max-height: 200px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+  list-style: none;
+}
+
+.layer-list__empty {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.layer-row:last-child {
+  border-bottom: 0;
+}
+
+.layer-row--selected {
+  background: color-mix(in srgb, var(--title-pink) 55%, var(--field));
+}
+
+.layer-row__name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 0;
+  overflow: hidden;
+  background: none;
+  border: 0;
+  font-size: 13px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-row .retro-button {
+  min-height: 24px;
+  padding: 0 7px;
+  box-shadow: var(--shadow-small);
+}
+
+.layer-row .retro-button:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-pressed);
+}
+
+/* ---------- Tools ---------- */
+
+/* The tool in use looks pressed in. */
+.disc-tool--on,
+.disc-tool--on:hover:not(:disabled) {
+  background: var(--title-pink);
+  box-shadow: var(--shadow-pressed);
+  transform: translate(3px, 3px);
+}

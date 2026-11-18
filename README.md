@@ -49,11 +49,22 @@ The first run compiles Tauri from scratch and takes several minutes. Later runs 
 
 ## Layout
 
-- `src/app/`: the shell (home grid, tool view).
+- `src/app/`: the shell (title bar, home grid, status bar, tool view).
+- `src/ui/`: the shared retro pieces (window, button, fields, dialog, progress bar). A tool builds its screen from these.
+- `src/styles/`: the design tokens, base rules and the bundled fonts.
 - `src/tools/`: one folder per tool, plus `registry.ts`, the list of tools. Adding a tool is a folder and one line in `TOOLS`.
 - `src/lib/`: helpers shared by the shell and the tools.
 - `src-tauri/`: the Rust side and the Tauri config.
 - `docs/`: the plan (`plan-workbench-1.0.md`) and the learning notes (`learning-tauri.md`).
+
+## The look
+
+Retro tech: cream window bodies, thick black outlines, hard offset shadows (never a blur), mono labels, chunky buttons. The shell bar on top is Nerd Castle royal purple. Each tool gets a pastel bar in its own colour (`colour` in its registry entry), and the home screen is a grid of yellow folder tiles.
+
+- **Every colour is a token** in `src/styles/tokens.css`. Nothing else holds a raw colour, so a dark mode later only redefines those names. The shell bar uses `--brand-purple` and `--on-brand` (from `DESIGN.md`: parchment on royal purple is 11.2:1). Never put red text on the purple; red may only be a fill.
+- **Shared pieces** live in `src/ui/`; their styles are in `src/ui/retro.css`.
+- **Fonts are bundled** in `src/assets/fonts/` as woff2, with their licences (both SIL OFL): IBM Plex Mono for labels and titles, Inter for fields. They load with no network. To add a weight, copy the woff2 there and add a `@font-face` block in `src/styles/fonts.css`.
+- The window has no OS frame (`decorations: false`). The title bar drags, minimises, maximises and closes it. There is no Windows snap-layout flyout on the maximise button: that is accepted.
 
 ## Project files
 

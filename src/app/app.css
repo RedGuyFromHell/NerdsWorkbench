@@ -1,0 +1,174 @@
+/* The app shell: the window fills the OS window, a home screen of tool tiles, the status bar. */
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+#root > .retro-window {
+  flex: 1;
+}
+
+/* A hidden attribute must win over the display rules below. */
+[hidden] {
+  display: none !important;
+}
+
+.tool-host,
+.home-host {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.home-host {
+  overflow: auto;
+}
+
+/* The tool's bar stays put; only its body scrolls. */
+.tool-host__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tool-host__loading {
+  padding: 24px;
+  font-family: var(--font-mono);
+}
+
+/* ---------- Home ---------- */
+
+.home-host {
+  background-color: var(--desk);
+  background-image: radial-gradient(circle at 1px 1px, var(--dot) 1.5px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.home {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 28px 32px;
+}
+
+.home__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 200px);
+  gap: 28px 32px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 8px;
+  background: transparent;
+  border: 3px solid transparent;
+  border-radius: var(--radius);
+}
+
+.tile:hover {
+  background: var(--paper);
+  border-color: var(--ink);
+  box-shadow: var(--shadow-hard);
+}
+
+.tile:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.tile__art {
+  position: relative;
+  display: block;
+  width: 132px;
+  height: 104px;
+  margin-bottom: 6px;
+}
+
+.tile__folder {
+  stroke: var(--ink);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.tile__folder-shadow {
+  fill: var(--ink);
+}
+
+.tile__folder-back {
+  fill: var(--title-yellow);
+}
+
+.tile__folder-front {
+  fill: var(--title-yellow);
+}
+
+/* The tool's own icon sits on the folder in a round badge in the tool colour, like the tick
+   badge on the folder in the reference. */
+.tile__badge {
+  --icon-fill: var(--tool-colour);
+  position: absolute;
+  right: -18px;
+  bottom: -14px;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  background: var(--tool-colour);
+  border: var(--border-heavy);
+  border-radius: 50%;
+  box-shadow: var(--shadow-small);
+}
+
+.tile__label {
+  padding: 3px 8px;
+  background: var(--field);
+  border: var(--border);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* ---------- Status bar ---------- */
+
+.statusbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 8px;
+  height: var(--statusbar-height);
+  padding: 0 10px;
+  background: var(--paper);
+  border-top: var(--border-heavy);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.statusbar__dot {
+  width: 9px;
+  height: 9px;
+  background: var(--ok);
+  border: var(--border);
+}
+
+.statusbar__text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusbar__version {
+  color: var(--muted);
+}

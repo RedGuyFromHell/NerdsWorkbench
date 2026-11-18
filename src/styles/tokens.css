@@ -1,0 +1,70 @@
+/* Design tokens. Every colour in the app comes from here: no raw colour anywhere else.
+   Light only for now. Dark mode later redefines these same names under a selector, and no
+   component needs to change. */
+:root {
+  color-scheme: light;
+
+  /* Surfaces and ink */
+  --ink: #1b1b1f; /* outlines and text */
+  --paper: #f7f3ea; /* window bodies */
+  --desk: #e9e4f2; /* behind the windows (home), carries the dot grid */
+  --field: #ffffff; /* inputs */
+  --muted: #6b6672; /* secondary text */
+  --muted-bg: #e4dfd2; /* disabled and pressed-in surfaces */
+  --dot: color-mix(in srgb, var(--ink) 14%, transparent); /* the desk dot grid */
+  --scrim: color-mix(in srgb, var(--ink) 45%, transparent); /* behind a dialog */
+
+  /* Title-bar colours, one per tool (ToolColour in tools/types.ts) */
+  --title-pink: #f4a6c8; /* Disc Studio */
+  --title-blue: #7fb8e6; /* Voucher Generator */
+  --title-yellow: #ffe27a; /* home, and the folder icons */
+  --title-green: #8fd9a8;
+
+  /* Nerd Castle brand (DESIGN.md): the shell bar. Parchment on royal purple is 11.2:1.
+     House rule: never red text on the purple; red may only be a fill. */
+  --brand-purple: #4a265a;
+  --on-brand: #f5f5f5;
+
+  /* Actions and state */
+  --accent: #cdc6f5; /* the primary button fill (the pastel lavender of "Got it") */
+  --danger: #ee6b6b;
+  --ok: #5fc48a;
+  --focus: #3b6fd4; /* keyboard focus ring */
+
+  /* Shape */
+  --border: 2px solid var(--ink);
+  --border-heavy: 3px solid var(--ink);
+  --shadow-hard: 4px 4px 0 var(--ink); /* hard offset, never a blur */
+  --shadow-small: 2px 2px 0 var(--ink);
+  --shadow-pressed: 1px 1px 0 var(--ink);
+  --radius: 6px;
+
+  /* Type */
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+  --font-sans: "Inter", "Segoe UI", sans-serif;
+
+  /* Sizes of the window chrome */
+  --titlebar-height: 32px;
+  --statusbar-height: 26px;
+}
+
+/* The tool colour names map to the tokens above, so a component can say data-colour="pink". */
+[data-colour] {
+  --on-tool: var(--ink);
+}
+[data-colour="brand"] {
+  --tool-colour: var(--brand-purple);
+  --on-tool: var(--on-brand);
+}
+[data-colour="pink"] {
+  --tool-colour: var(--title-pink);
+}
+[data-colour="blue"] {
+  --tool-colour: var(--title-blue);
+}
+[data-colour="yellow"] {
+  --tool-colour: var(--title-yellow);
+}
+[data-colour="green"] {
+  --tool-colour: var(--title-green);
+}

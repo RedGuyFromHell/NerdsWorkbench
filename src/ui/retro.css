@@ -1,0 +1,456 @@
+/* The retro look: cream windows, pastel title bars, thick black outlines, hard offset shadows,
+   mono labels. Colours come from styles/tokens.css only. */
+
+/* ---------- Window ---------- */
+
+.retro-window {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--paper);
+  border: var(--border-heavy);
+}
+
+.retro-window--floating {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hard);
+  overflow: hidden;
+}
+
+.retro-window__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.retro-titlebar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  height: var(--titlebar-height);
+  padding: 0 5px 0 10px;
+  background: var(--tool-colour, var(--title-yellow));
+  border-bottom: var(--border-heavy);
+  color: var(--on-tool, var(--ink));
+}
+
+.retro-titlebar:has(> .retro-button) {
+  padding-left: 4px;
+}
+
+.retro-titlebar__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.retro-titlebar__controls {
+  display: flex;
+  gap: 5px;
+}
+
+/* The chunky square minimise, maximise and close boxes. */
+.window-button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: var(--field);
+  border: var(--border);
+  box-shadow: var(--shadow-small);
+  color: var(--ink);
+}
+
+.window-button:hover {
+  background: var(--ink);
+  color: var(--field);
+}
+
+.window-button--close:hover {
+  background: var(--danger);
+  color: var(--ink);
+}
+
+.window-button:active {
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-pressed);
+}
+
+/* ---------- Buttons ---------- */
+
+.retro-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 16px;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-hard);
+  color: var(--ink); /* WHY: a button inside the purple bar must not inherit parchment text */
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  transition:
+    transform 60ms,
+    box-shadow 60ms;
+}
+
+.retro-button:hover:not(:disabled) {
+  background: var(--paper);
+}
+
+.retro-button:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: var(--shadow-pressed);
+}
+
+.retro-button:disabled {
+  background: var(--muted-bg);
+  color: var(--muted);
+  box-shadow: var(--shadow-small);
+}
+
+.retro-button--primary {
+  background: var(--accent);
+}
+
+.retro-button--primary:hover:not(:disabled) {
+  background: var(--title-pink);
+}
+
+.retro-button--danger {
+  background: var(--danger);
+}
+
+.retro-button--large {
+  min-height: 56px;
+  padding: 0 28px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The small Home button that sits inside the title bar. */
+.retro-titlebar > .retro-button {
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  box-shadow: var(--shadow-small);
+}
+
+.retro-titlebar > .retro-button:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-pressed);
+}
+
+/* ---------- Section header ---------- */
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.section-header::after {
+  content: "";
+  flex: 1;
+  border-top: var(--border);
+}
+
+.section-header__number {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  background: var(--title-yellow);
+  border: var(--border);
+  font-size: 11px;
+}
+
+/* ---------- Fields ---------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.field__hint {
+  color: var(--muted);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.input,
+.number-field,
+.color-field {
+  height: 34px;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.input {
+  width: 100%;
+  padding: 0 10px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+.input--mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.input:disabled {
+  background: var(--muted-bg);
+  color: var(--muted);
+}
+
+.input:focus-visible,
+.number-field:focus-within,
+.color-field:focus-within {
+  outline: 3px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.input--select {
+  appearance: none;
+  padding-right: 30px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink) 50%),
+    linear-gradient(135deg, var(--ink) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 14px,
+    calc(100% - 12px) 14px;
+  background-size:
+    5px 6px,
+    5px 6px;
+  background-repeat: no-repeat;
+}
+
+.number-field {
+  display: flex;
+  overflow: hidden;
+}
+
+.number-field__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 10px;
+  background: transparent;
+  border: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.number-field__input:focus-visible {
+  outline: none;
+}
+
+.number-field__steppers {
+  display: flex;
+  flex-direction: column;
+  width: 24px;
+  border-left: var(--border);
+}
+
+.number-field__steppers button {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  padding: 0;
+  background: var(--paper);
+  border: 0;
+}
+
+.number-field__steppers button + button {
+  border-top: var(--border);
+}
+
+.number-field__steppers button:hover {
+  background: var(--title-yellow);
+}
+
+.color-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px;
+}
+
+.color-field__swatch {
+  width: 26px;
+  height: 26px;
+  border: var(--border);
+  border-radius: 3px;
+}
+
+.color-field__value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* The real colour input covers the whole field, invisible, so a click anywhere opens the picker. */
+.color-field__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---------- Checkbox ---------- */
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.checkbox__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.checkbox__box {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  background: var(--field);
+  border: var(--border);
+  box-shadow: var(--shadow-small);
+  color: transparent;
+}
+
+.checkbox__input:checked + .checkbox__box {
+  background: var(--title-yellow);
+  color: var(--ink);
+}
+
+.checkbox__input:focus-visible + .checkbox__box {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.checkbox__input:disabled + .checkbox__box {
+  background: var(--muted-bg);
+}
+
+.checkbox__label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ---------- Progress bar ---------- */
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress__track {
+  flex: 1;
+  height: 22px;
+  padding: 2px;
+  background: var(--field);
+  border: var(--border);
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  background: var(--title-blue);
+  transition: width 120ms linear;
+}
+
+.progress__fill--indeterminate {
+  width: 100%;
+  background: repeating-linear-gradient(-45deg, var(--title-blue) 0 10px, var(--paper) 10px 20px);
+  background-size: 28px 28px;
+  animation: progress-slide 700ms linear infinite;
+}
+
+@keyframes progress-slide {
+  to {
+    background-position: 28px 0;
+  }
+}
+
+.progress__label {
+  min-width: 3.5em;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---------- Dialog ---------- */
+
+.dialog {
+  width: min(480px, calc(100vw - 48px));
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+
+.dialog::backdrop {
+  background: var(--scrim);
+}
+
+.dialog__content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 0 18px 18px;
+}

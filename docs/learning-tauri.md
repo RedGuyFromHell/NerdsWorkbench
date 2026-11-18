@@ -21,3 +21,23 @@ See `vite.config.ts:9`.
 
 The page cannot touch the disk or the system by itself. A Tauri command is a Rust function marked `#[tauri::command]` and registered in the builder; the page calls it with `invoke("name", { args })`, which returns a promise, a bit like calling a method across a process boundary. This slice has no commands yet: the next slices add the file ones. Until then `src/lib/platform.ts` tells the UI whether it runs in the Tauri window or in a plain browser.
 See `src-tauri/src/lib.rs:1`.
+
+## A custom title bar: `decorations: false` and the drag region
+
+Normally Windows draws the title bar and the three buttons. With `"decorations": false` in `tauri.conf.json` the window has no frame at all, so the page draws its own bar. To make that bar move the window, put the attribute `data-tauri-drag-region` on it. Tauri then drags the window when you press on that element, and a double-click toggles maximise. The attribute only counts on the element you press itself, not its children, so the title text carries it too, while the buttons inside the bar stay normal clickable buttons.
+See `src/ui/RetroWindow.tsx:28`.
+
+## Window commands and capabilities
+
+The buttons call `getCurrentWindow().minimize()`, `.toggleMaximize()` and `.close()`. Each one is a Tauri command, and a command is blocked until a **capability** allows it. Capabilities are JSON files in `src-tauri/capabilities/`; ours lists `core:window:allow-minimize`, `allow-toggle-maximize`, `allow-close` and `allow-start-dragging` (the last one is what the drag region needs). A permission with a misspelt name fails the Rust build, which is a handy check. Think of it as an allow-list the page must be on before it can touch the window.
+See `src-tauri/capabilities/default.json:6`.
+
+## Bundled fonts and the CSP
+
+The CSP line in `tauri.conf.json` says `font-src 'self' data:`: the page may load fonts only from the app itself, never from Google Fonts. So the woff2 files live in `src/assets/fonts/` and `src/styles/fonts.css` points at them. Vite copies them into the built app, so the app also works with no network. Each font is split in two files (`latin` and `latin-ext`, which holds the Romanian ș and ț) and `unicode-range` makes the web view load only the file a page needs.
+See `src/styles/fonts.css:5`.
+
+## Running the UI in a plain browser
+
+`corepack pnpm dev` alone serves the page at http://localhost:1420 without the Rust window. Calls to the window API would fail there, so `src/lib/platform.ts` checks `isTauri()` first and loads the Tauri modules only inside the real window. In a browser the buttons do nothing and the status bar says "web preview", which is enough to check the layout in any browser.
+See `src/lib/platform.ts:4`.

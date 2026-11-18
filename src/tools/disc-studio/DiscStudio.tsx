@@ -7,6 +7,7 @@ import "../../styles/disc-fonts.css";
 import "./disc-studio.css";
 import { addImageFiles, type FileUi } from "./engine/actions";
 import { DiscDocument } from "./engine/document";
+import { openProjectFromPath } from "./engine/fileActions";
 import { attachKeys, attachPointer } from "./engine/pointer";
 import { AddPanel } from "./panels/AddPanel";
 import { DiscSettingsPanel } from "./panels/DiscSettings";
@@ -30,7 +31,7 @@ function EmptyHint({ doc }: { doc: DiscDocument }) {
   return <p className="disc-studio__empty">Drop images here, or use “Add text”.</p>;
 }
 
-export default function DiscStudio({ setStatus }: ToolContext) {
+export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [doc, setDoc] = useState<DiscDocument | null>(null);
@@ -57,6 +58,15 @@ export default function DiscStudio({ setStatus }: ToolContext) {
       setDoc(null);
     };
   }, []);
+
+  // WHY: the nonce of the last request handled, so a re-render does not open the file again, while
+  // a new request for the same path (a new nonce) opens it again.
+  const handledNonce = useRef<number | null>(null);
+  useEffect(() => {
+    if (!doc || !openRequest || handledNonce.current === openRequest.nonce) return;
+    handledNonce.current = openRequest.nonce;
+    void openProjectFromPath(doc, openRequest.path, ui);
+  }, [doc, openRequest, ui]);
 
   useEffect(() => {
     if (!doc) return;

@@ -72,6 +72,18 @@ export async function openProjectAt(discDocument: DiscDocument, path: string): P
   await discDocument.open(parseProject(text));
 }
 
+/** Opens a project from a path that is already known (a file Explorer handed over). */
+export function openProjectFromPath(
+  discDocument: DiscDocument,
+  path: string,
+  ui: FileUi,
+): Promise<void> {
+  return guarded(ui, async () => {
+    await openProjectAt(discDocument, path);
+    ui.status(`Opened ${fileNameOf(path)}.`);
+  });
+}
+
 export function openProjectFromDisk(discDocument: DiscDocument, ui: FileUi): Promise<void> {
   return guarded(ui, async () => {
     const path = await pickOpenFile({ title: "Open a project", filters: [OPEN_PROJECT_FILTER] });

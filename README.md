@@ -112,4 +112,10 @@ A project file is JSON with a top-level `"tool"` field and a `"version"` field, 
 
 Disc Studio's _Save project_ writes `<file name>.nerd`: `"tool": "disc-studio"`, `"version": 1`, the settings (`S`), the uploaded mask, every image as a data URL and the layers with their eraser strokes. It also writes the old `"app"` and `"v"` fields, so the original `disc-studio.html` still opens the file if you rename it to `.json`. _Open project_ takes `.nerd` and `.disc.json` files; a file of another tool, or from a newer version, shows a message and changes nothing.
 
+### Opening a file from Explorer
+
+The installer registers `.nerd` for the current user, so a double-click opens the file in Nerd's Workbench. The app routes it by the `"tool"` field inside the file (a `.nerd` file of an unknown tool, or one that is not valid JSON, shows a message window). Old `.disc.json` files are not registered (Explorer sees them as `.json`); they open from Disc Studio's _Open project_ button or by the extension when passed to the app.
+
+Only one copy of the app runs. If it is already open, a second launch (the double-click) does not start a second window: the running window comes to the front and opens the file. Rust queues the paths (`src-tauri/src/open_files.rs`) and the page takes them (`src/app/openFiles.ts`); the decision of which tool gets a file is in `src/app/routeOpenFile.ts`, with tests.
+
 The page reads and writes files through two Rust commands (`read_file_bytes`, `write_file_bytes` in `src-tauri/src/files.rs`) that carry the bytes as a raw request body, with the paths coming from the Windows dialogs. In a plain browser (the Vite URL) the file buttons show "Files can only be opened and saved in the desktop app."

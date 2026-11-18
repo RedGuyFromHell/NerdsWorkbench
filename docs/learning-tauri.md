@@ -116,3 +116,23 @@ See `src-tauri/capabilities/default.json:14`.
 
 `tauri dev` runs the page in WebView2, which is Edge. Start it with the environment variable `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222` (and `WEBVIEW2_USER_DATA_FOLDER` pointing at a scratch folder, or WebView2 refuses to start next to another app that uses the default one), and Playwright can attach with `chromium.connectOverCDP("http://localhost:9222")`. Inside the page, `await import("/src/lib/files.ts")` loads the same module the app uses from Vite, so a script can call the real commands with the real IPC and check the file with Node. Native dialogs cannot be driven this way: `window.__TAURI_INTERNALS__.invoke` is read-only, so it cannot be faked, and a click on a dialog button opens a real dialog.
 See `src/tools/disc-studio/engine/fileActions.ts:85`.
+
+## Command-line arguments: how Explorer hands a file to the app
+
+Double-clicking a file with an associated extension runs `app.exe "C:pathile.nerd"`: the path is just an argument after the executable's own name. `std::env::args()` lists them, so `paths_from_args` skips the first one and anything starting with `-`. A path with spaces or `ș` arrives as one whole argument, because Windows quotes it. `bundle.fileAssociations` only tells the installer to register the extension; the app itself must read its arguments.
+See `src-tauri/src/open_files.rs:18`.
+
+## Single instance: the second launch talks to the first
+
+Without help, every double-click starts another copy. `tauri-plugin-single-instance` lets the first copy keep running: a second launch exits at once and calls a callback **in the first copy** with its arguments and working folder. Our callback queues the paths and brings the window to the front (`unminimize`, `show`, `set_focus`). The plugin must be registered before every other plugin, so the second launch dies before it opens anything.
+See `src-tauri/src/lib.rs:15`.
+
+## Managed state: data shared by commands
+
+`Builder::manage(value)` puts one value in the app for good; a command asks for it with a parameter `State<'_, T>` and Tauri fills it in. Commands run on several threads, so a value that changes sits behind a `Mutex`. Ours is the queue of paths waiting for the page (`PendingOpenFiles`), and `take_pending_open_files` empties it with `std::mem::take`.
+See `src-tauri/src/open_files.rs:43`.
+
+## Events: Rust tells the page, and the race with the first render
+
+`app.emit("open-file", ())` sends an event to the page, which hears it with `listen` from `@tauri-apps/api/event` (the `core:default` capability already allows listening). An event is not stored: one sent before the page called `listen` is gone. So the event carries no data. The paths wait in the queue, and the page takes the queue once when it mounts and again on every event. It listens first, then takes, so a path that arrives in between is still picked up.
+See `src/app/openFiles.ts:38`.

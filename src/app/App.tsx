@@ -6,9 +6,12 @@ import { Dialog } from "../ui/Dialog";
 import { RetroTitleBar, RetroWindow } from "../ui/RetroWindow";
 import { HomeGrid } from "./HomeGrid";
 import { useOpenFiles } from "./openFiles";
+import { back, currentScreen, forward, startHistory, visit } from "./screenHistory";
 import { SettingsWindow } from "./settings/SettingsWindow";
+import type { Direction } from "./shellInput";
 import { StatusBar } from "./StatusBar";
 import { TitleBar } from "./TitleBar";
+import { useShellNavigation } from "./useShellNavigation";
 import { UpdatePrompt } from "./update/UpdatePrompt";
 import { useUpdates } from "./update/useUpdates";
 
@@ -37,7 +40,9 @@ function ToolHost({ tool, visible, openRequest, onStatus }: ToolHostProps) {
 }
 
 export function App() {
-  const [activeId, setActiveId] = useState<ToolId | null>(null);
+  const [screens, setScreens] = useState(startHistory);
+  const screen = currentScreen(screens);
+  const activeId = screen === "home" ? null : screen;
   // Every tool opened so far, in the order of opening. A tool stays here until the app closes.
   const [openedIds, setOpenedIds] = useState<readonly ToolId[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -50,8 +55,16 @@ export function App() {
 
   const openTool = useCallback((id: ToolId) => {
     setOpenedIds((current) => (current.includes(id) ? current : [...current, id]));
-    setActiveId(id);
+    setScreens((current) => visit(current, id));
   }, []);
+
+  // The only ways the screen changes besides opening a tool.
+  const goHome = useCallback(() => setScreens((current) => visit(current, "home")), []);
+  const move = useCallback(
+    (direction: Direction) =>
+      setScreens((current) => (direction === "back" ? back(current) : forward(current))),
+    [],
+  );
 
   useOpenFiles({
     onOpen: (id, { path }) => {
@@ -67,10 +80,11 @@ export function App() {
   }, []);
 
   const activeTool = activeId === null ? null : getTool(activeId);
+  useShellNavigation({ onTool: activeTool !== null, goHome, move });
 
   return (
     <RetroWindow
-      titleBar={<TitleBar onHome={activeTool ? () => setActiveId(null) : null} />}
+      titleBar={<TitleBar onHome={activeTool ? goHome : null} />}
       footer={
         <StatusBar
           text={(activeId === null ? "" : statuses[activeId]) || updates.notice}

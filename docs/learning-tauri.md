@@ -141,3 +141,17 @@ See `src/app/openFiles.ts:38`.
 
 The page calls Rust with a `fetch` to Tauri's IPC protocol: `http://ipc.localhost` on Windows, `ipc:` on macOS and Linux. The app's Content Security Policy (`app.security.csp`) decides what the page may fetch. If `connect-src` is missing, `default-src 'self'` applies and blocks it. Tauri does not fail: it logs a warning and falls back to `window.ipc.postMessage`, which carries only JSON. Commands with JSON arguments still work, so nothing looks broken, but a raw body (`InvokeBody::Raw`) arrives as JSON and `write_file_bytes` refuses it. `tauri dev` serves the page from Vite without the CSP, so only the built app shows it. Our CSP lists `connect-src 'self' ipc: http://ipc.localhost`, and `src/lib/csp.test.ts` keeps it there.
 See `src-tauri/tauri.conf.json:27`.
+
+## The mouse side buttons: button 3 and 4, and why WebView2 may navigate
+
+A mouse with Back and Forward buttons sends them as `button` 3 and 4 in the mouse events (0 left, 1 middle, 2 right). In a browser they go back and forward through the page history, and WebView2 is a browser, so in principle it can do the same inside our window. Our app is one page with no link, route or `pushState`, so its session history holds one entry and `history.length` is 1: there is nowhere to go and nothing happens. We still call `preventDefault` on the side buttons, so a link added later cannot start moving the page by itself. The screens (home, tools) have their own history in `src/app/screenHistory.ts`, and the side buttons walk that.
+See `src/app/shellInput.ts:7`.
+
+## Capture-phase listeners on `window`: first in line, before every component
+
+An event travels down from `window` to the target (capture), then back up (bubble). A listener added with `addEventListener(type, fn, true)` on `window` hears the event first, before any React handler or any listener a tool put on its canvas, and `stopPropagation` there hides it from all of them. The Disc Studio canvas starts a drag on every `pointerdown`, whatever the button, so a side button pressed over it would grab a layer; the shell stops `pointerdown` and `pointerup` for button 3 and 4 in the capture phase and the canvas never sees them. `preventDefault` is not used on those two: it would silence the `mousedown` and `mouseup` that follow, and `mouseup` is where the move happens. The listeners are added once in an effect and read the latest actions through a ref, so they are not rebuilt on every render.
+See `src/app/useShellNavigation.ts:40`.
+
+## Pressing a side button from a script: CDP `Input.dispatchMouseEvent`
+
+Playwright's `page.mouse` has only left, middle and right. Through the WebView2 debug port a script can open a raw Chrome DevTools Protocol session (`context.newCDPSession(page)`) and send `Input.dispatchMouseEvent` with `button: "back"` or `"forward"`, once as `mousePressed` and once as `mouseReleased` (with `buttons` 8 or 16 while pressed). The browser turns it into the same trusted events a real mouse makes, so a check of the built app can press the side buttons without moving the real mouse. A real mouse on the real window is still the final proof.

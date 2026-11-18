@@ -57,6 +57,10 @@ The first run compiles Tauri from scratch and takes several minutes. Later runs 
 - `src-tauri/`: the Rust side and the Tauri config.
 - `docs/`: the plan (`plan-workbench-1.0.md`) and the learning notes (`learning-tauri.md`).
 
+## Disc Studio
+
+Disc Studio designs a printable disc (a coaster or a badge): images and text on layers, a mask, an eraser, and a print PNG with the dpi written in. It is a port of `disc-studio.html`. Its pure logic is already here, in `src/tools/disc-studio/engine/`: `geometry.ts` (disc and layer maths), `maskAlpha.ts`, `pngDpi.ts`, `project.ts` (the file format, read with zod), `svg.ts` and `layerOps.ts`, each with a Vitest test beside it. The screen, the drawing and the parity test against the original come in the next slices.
+
 ## The look
 
 Retro tech: cream window bodies, thick black outlines, hard offset shadows (never a blur), mono labels, chunky buttons. The shell bar on top is Nerd Castle royal purple. Each tool gets a pastel bar in its own colour (`colour` in its registry entry), and the home screen is a grid of yellow folder tiles.

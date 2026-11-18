@@ -51,3 +51,13 @@ See `src/app/update/updateCheck.ts:74`.
 
 A Tauri plugin has two halves that must both be wired: a Rust crate registered in the builder (`tauri_plugin_updater`, `tauri_plugin_process` in `src-tauri/src/lib.rs`) and a JavaScript package the page imports. Its commands are blocked until the capability file allows them: `updater:default` (check, download, install) and `process:allow-restart` (relaunch). The installer itself is NSIS, and `bundle.windows.nsis.installMode: "currentUser"` makes it install under `%LOCALAPPDATA%` instead of Program Files, so there is no admin (UAC) prompt, and the updater can replace the app later without one either.
 See `src-tauri/capabilities/default.json:10`.
+
+## zod at the boundary: reading a project file
+
+A file from the disk is just text until we check it. `parseProject` in `src/tools/disc-studio/engine/project.ts` is the one place where that happens: `JSON.parse` gives `unknown`, a **zod** schema checks every field, fills the missing settings with defaults, and returns a typed `DiscProject`. After that the rest of the code trusts the types and checks nothing again, much like deserialising JSON into a C# class once, at the edge. A damaged file fails loudly with the path of the broken field (`layers.0.x`) instead of crashing later in the drawing code. The TypeScript types (`Layer`, `DiscSettings`) are derived from the schema with `z.infer`, so the schema and the types cannot drift apart.
+See `src/tools/disc-studio/engine/project.ts:117`.
+
+## happy-dom: a browser DOM for one test file
+
+Vitest runs tests in Node, which has no `document` and no `DOMParser`. Most of our tests need neither, so they run in plain Node (fast). `svg.ts` does need a DOM, so its test file starts with the comment `// @vitest-environment happy-dom`: Vitest then gives only that file a small fake browser from the `happy-dom` package, and every other file keeps the plain environment. It is like putting one test into a different Unity test assembly instead of changing the whole project. happy-dom is not a real browser: it proves our logic, and the pixel-exact drawing is proven separately against the original HTML.
+See `src/tools/disc-studio/engine/svg.test.ts:1`.

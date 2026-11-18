@@ -7,7 +7,7 @@ The home screen shows one tile per tool. Planned tools:
 - **Disc Studio**: a port of `disc-studio.html`.
 - **Voucher Generator**: the voucher tab of the old app, same features.
 
-Right now both tools are placeholders: the shell, the tool registry and the gate are in place.
+Disc Studio is in the app. The Voucher Generator is being ported: its decisions and the Shopify connection are in, its screen is not yet.
 
 ## Development setup
 
@@ -132,6 +132,37 @@ The installer registers `.nerd` for the current user, so a double-click opens th
 Only one copy of the app runs. If it is already open, a second launch (the double-click) does not start a second window: the running window comes to the front and opens the file. Rust queues the paths (`src-tauri/src/open_files.rs`) and the page takes them (`src/app/openFiles.ts`); the decision of which tool gets a file is in `src/app/routeOpenFile.ts`, with tests.
 
 The page reads and writes files through two Rust commands (`read_file_bytes`, `write_file_bytes` in `src-tauri/src/files.rs`) that carry the bytes as a raw request body, with the paths coming from the Windows dialogs. In a plain browser (the Vite URL) the file buttons show "Files can only be opened and saved in the desktop app."
+
+## Shopify connection
+
+The Shopify connection belongs to the whole app, not to one tool. It is set up once in the Settings window (the gear at the left of the status bar), section _Shopify connection_. A tool that needs Shopify shows "Not connected - open Settings" until then; the other tools work without it.
+
+### Setting it up
+
+The app connects through a Shopify app of your own, made in the Shopify Dev Dashboard (not an App Store app):
+
+1. In the Dev Dashboard, create an app (or open the existing one) and make a version with:
+   - redirect URL `http://localhost:8765/callback`, exactly like that (not `127.0.0.1`, no trailing slash);
+   - scopes `read_price_rules`, `write_price_rules`, `read_discounts`, `write_discounts`, `read_products`.
+2. Install the app on the store.
+3. In Nerd's Workbench, open Settings and fill in the store (`your-store.myshopify.com`), the app's client ID and its client secret.
+4. Press _Connect to Shopify_. The browser opens Shopify's approval page; approve within two minutes. The browser tab then says "Approved" and the Settings window says "Connected".
+
+If port 8765 is taken by another program, Connect says so: close that program and connect again. The port is only open while a connect is waiting, on this PC only (`127.0.0.1` and `::1`), and it closes after the first answer.
+
+### Where the secrets live
+
+- The **access token** and the **client secret** are in Windows Credential Manager (_Windows Credentials_, generic credentials `shopify-token.nerds-workbench` and `shopify-client-secret.nerds-workbench`). They are never written to a file.
+- The store name, the client ID and the API version (`2026-04` by default) are in `settings.json` in the app's config folder (`%APPDATA%\eu.nerdcastle.workbench\`). Nothing secret is in that file.
+- The page (the web view) never gets the token or the secret. It can ask whether they exist, send a new client secret, and send a GraphQL query; Rust adds the token and returns the data (`src-tauri/src/shopify/`, called from `src/lib/shopify/client.ts`). An error shows the HTTP status and Shopify's own message, never a secret.
+
+### Coming from the old app
+
+The old PyQt app kept all of this, token and secret included, as plain text in `~/.nerdworkbench/config.json`. The first start of this app imports it once: the token and the secret go to Windows Credential Manager, then the old file is rewritten without those two keys, then `settings.json` is written. If Credential Manager refuses, the old file is left untouched and the next start tries again. The Settings window says when the import happened, or why it failed.
+
+### Disconnecting
+
+_Disconnect_ in the Settings window removes both entries from Windows Credential Manager (you can check there). The app stays installed on the store: to revoke the token itself, uninstall the app in the Shopify admin. Changing the store name in Settings also removes the token, because a token only works on the store that issued it.
 
 ## Voucher Generator
 

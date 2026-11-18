@@ -194,3 +194,23 @@ See `src/tools/voucher/core/roundHalfToEven.ts:4`.
 
 A test that passes tells you little until you have seen it fail. After the code works, change one line on purpose (swap `Math.floor` for `Math.round`, drop a `> 0` check), run that test file, and watch it go red; then restore the line. This slice did it for every rule, and it found one test (the "ten times" boundary) that stayed green with the rule changed, so a case was added. It is a hand-made version of what mutation-testing tools automate.
 See `src/tools/voucher/core/codeLayout.test.ts:32`.
+
+## Async commands: work that waits must not block the window
+
+A command written as a plain `fn` runs on the main thread, the one that also draws the window, so it must return at once. A command written as `async fn` runs on Tauri's async runtime (tokio) instead, and can `.await` an HTTP call for seconds while the window stays alive. Our Shopify commands are all `async`. One rule comes with it: an async command that borrows something (such as `State<'_, T>`) must return a `Result`.
+See `src-tauri/src/shopify/oauth.rs:354`.
+
+## `spawn_blocking`: old-style waiting inside async code
+
+The OAuth listener waits up to two minutes for the browser, with plain blocking sockets (`std::net`) and a short sleep between looks. Doing that directly inside an `async fn` would freeze one of the runtime's few worker threads. `tauri::async_runtime::spawn_blocking` moves the closure to a separate pool made for blocking work and gives back something to `.await`. It is the Rust cousin of `Task.Run` around a blocking call in C#.
+See `src-tauri/src/shopify/oauth.rs:381`.
+
+## The keyring crate and a trait as the test seam
+
+`keyring` stores a secret in the operating system's own vault: on Windows, the Credential Manager. An entry is named by a service and a user (`nerds-workbench` and `shopify-token`), and it holds one password. Tests must never touch the real vault, so the code does not call `keyring` directly: it talks to a small trait, `SecretStore` (a trait is Rust's interface). The app passes the real `CredentialManager`; the tests pass a `MemoryStore` that can also be told to fail, which is how "the old file is not rewritten when a secret cannot be stored" is proven.
+See `src-tauri/src/secrets.rs:11`.
+
+## Managed state that is filled in `setup`
+
+`app.manage(value)` can also be called inside `setup`, when the value needs the app itself to be computed. The import of the old config runs there once, and its outcome is managed as `OldConfigImport`. It never changes afterwards, so it needs no `Mutex`: the `shopify_status` command just reads it through `State<'_, OldConfigImport>` each time the Settings window asks.
+See `src-tauri/src/lib.rs:54`.

@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { appVersionLabel } from "../../lib/platform";
 import { payoutSection } from "../../tools/payout/settings/payoutSection";
+import { SHOPIFY_SETTINGS_SECTION } from "../../lib/shopify/client";
 import { Button } from "../../ui/Button";
 import { checkResultMessage } from "../update/updateCheck";
 import type { UpdateCheckResult } from "../update/updateCheck";
+import { ShopifySection } from "./ShopifySection";
 
 /** What the app gives every section. Grows when a section needs something new. */
 export interface SettingsContext {
@@ -60,13 +62,9 @@ function UpdatesSection({ checkForUpdates }: SettingsContext) {
   );
 }
 
-function ShopifySection() {
-  return <p className="settings__placeholder">Coming with the Voucher tool.</p>;
-}
-
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: "about", title: "About", component: AboutSection },
   { id: "updates", title: "Updates", component: UpdatesSection },
-  { id: "shopify", title: "Shopify connection", component: ShopifySection },
+  { id: SHOPIFY_SETTINGS_SECTION, title: "Shopify connection", component: ShopifySection },
   payoutSection,
 ];

@@ -208,6 +208,45 @@
   font-style: italic;
 }
 
+.settings__state {
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
+.settings__state::before {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  content: "";
+  background: var(--muted-bg);
+  border: var(--border);
+  border-radius: 50%;
+}
+
+.settings__state[data-connected="true"]::before {
+  background: var(--ok);
+}
+
+.settings__note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.settings__error {
+  padding: 6px 10px;
+  border: var(--border);
+  border-left: 8px solid var(--danger);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.settings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
 .update-notes {
   max-height: 160px;
   overflow-y: auto;

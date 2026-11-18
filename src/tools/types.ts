@@ -29,6 +29,8 @@ export interface ToolContext {
   setStatus(text: string): void;
   /** Call with the save action while the tool holds work that is not saved, and with null when it does not. */
   setUnsavedWork(work: UnsavedWork | null): void;
+  /** Opens the app's Settings window with the section of this id in view. */
+  openSettings(sectionId: string): void;
 }
 
 export interface ToolDefinition {

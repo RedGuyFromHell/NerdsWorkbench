@@ -1,0 +1,24 @@
+/* The Voucher tool. Colours come from the tokens in src/styles/tokens.css. */
+
+.voucher-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 48px 24px;
+  font-family: var(--font-mono);
+  text-align: center;
+}
+
+.voucher-collections {
+  width: min(420px, 100%);
+  max-height: 320px;
+  margin: 0;
+  padding: 8px 12px;
+  overflow-y: auto;
+  list-style: none;
+  text-align: left;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+}

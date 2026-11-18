@@ -125,7 +125,8 @@ export default function DiscStudio({ openRequest, setStatus }: ToolContext) {
               <SectionHeader title="Mouse and keys" />
               <p className="disc-hint">
                 Drag = move · wheel = size · Shift + wheel = rotate · Alt = finer steps · arrows =
-                nudge 0.1 mm (Shift: 1 mm) · Del = delete · Ctrl+D = copy
+                nudge 0.1 mm (Shift: 1 mm) · Del = delete · Ctrl+D = copy · Ctrl+Z = undo ·
+                Ctrl+Shift+Z = redo
               </p>
             </section>
           </>

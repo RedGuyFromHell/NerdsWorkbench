@@ -3,6 +3,17 @@
 // document through subscribe and getVersion (useSyncExternalStore), the canvas through requestDraw.
 import { TEXT_MEASURE_SCALE, type Point } from "./geometry";
 import {
+  beginGesture,
+  endGesture,
+  recordChange,
+  redo,
+  resetHistory,
+  undo,
+  type DiscContent,
+  type History,
+  type HistoryMove,
+} from "./history";
+import {
   DEFAULT_SETTINGS,
   nextLayerId,
   type DiscProject,
@@ -40,12 +51,14 @@ export class DiscDocument {
   nextId = 1;
   readonly renderer: DiscRenderer;
 
+  private history: History;
   private version = 0;
   private drawQueued = false;
   private readonly listeners = new Set<() => void>();
 
   constructor(readonly view: HTMLCanvasElement) {
     this.renderer = new DiscRenderer(this, view);
+    this.history = resetHistory(this.content());
   }
 
   // #region Store
@@ -56,8 +69,9 @@ export class DiscDocument {
 
   readonly getVersion = (): number => this.version;
 
-  /** Call after changing any field: tells the panels and queues a redraw. */
+  /** Call after changing any field: records an undo step if the content changed, tells the panels and queues a redraw. */
   markChanged(): void {
+    this.history = recordChange(this.history, this.content(), performance.now());
     this.version++;
     for (const listener of this.listeners) listener();
     this.requestDraw();
@@ -71,6 +85,59 @@ export class DiscDocument {
       this.drawQueued = false;
       this.renderer.draw();
     });
+  }
+  // #endregion
+
+  // #region History
+  /** A drag or an eraser stroke: every change until endGesture is one undo step. */
+  beginGesture(): void {
+    this.history = beginGesture(this.history);
+  }
+
+  endGesture(): void {
+    this.history = endGesture(this.history);
+  }
+
+  get canUndo(): boolean {
+    return this.history.past.length > 0;
+  }
+
+  get canRedo(): boolean {
+    return this.history.future.length > 0;
+  }
+
+  undo(): void {
+    this.restoreMove(undo(this.history));
+  }
+
+  redo(): void {
+    this.restoreMove(redo(this.history));
+  }
+
+  private content(): DiscContent {
+    return {
+      settings: this.settings,
+      layers: this.layers,
+      images: this.images,
+      mask: this.mask,
+      nextId: this.nextId,
+      selectedId: this.selected?.id ?? null,
+    };
+  }
+
+  private restoreMove(move: HistoryMove | null): void {
+    if (!move) return;
+    const { content } = move;
+    const masksChanged = this.settings !== content.settings || this.mask !== content.mask;
+    this.history = move.history;
+    this.settings = content.settings;
+    this.layers = content.layers;
+    this.images = new Map(content.images); // the document adds to its own map in place, the snapshot keeps its own
+    this.mask = content.mask;
+    this.nextId = content.nextId;
+    this.selected = this.layers.find((layer) => layer.id === content.selectedId) ?? null;
+    if (masksChanged) this.renderer.buildMasks();
+    this.markChanged(); // sees the content already recorded: no new step
   }
   // #endregion
 
@@ -103,6 +170,7 @@ export class DiscDocument {
     this.selected = null;
     this.nextId = nextLayerId(this.layers, images.keys());
     this.renderer.buildMasks();
+    this.history = resetHistory(this.content());
     this.markChanged();
   }
 }

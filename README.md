@@ -75,12 +75,13 @@ A picture that has fewer pixels than the print needs (below 95% of its width at 
 
 ### Shortcuts
 
-They work while Disc Studio is on screen and the focus is not in a field or a message window.
+They work while Disc Studio is on screen and the focus is not in a field or a message window. Ctrl+Z and Ctrl+Y also work with a list, a checkbox or a colour picker focused; inside a text field they undo the typing there.
 
 | Key                        | What it does                                          |
 | -------------------------- | ----------------------------------------------------- |
 | V, E, R                    | Move, Eraser and Restore tool                         |
-| Ctrl+Z                     | Undo the last eraser stroke of the selected layer     |
+| Ctrl+Z                     | Undo the last change (one step per act)               |
+| Ctrl+Shift+Z, Ctrl+Y       | Redo                                                  |
 | Arrow keys                 | Nudge the selected layer 0.1 mm (hold Shift for 1 mm) |
 | Delete or Backspace        | Delete the selected layer                             |
 | Ctrl+D                     | Copy the selected layer                               |

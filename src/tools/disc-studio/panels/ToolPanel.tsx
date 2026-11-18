@@ -50,7 +50,7 @@ export function ToolPanel({ doc }: { doc: DiscDocument }) {
       </div>
       <p className="disc-hint">
         Keys: V move · E eraser · R restore. The eraser works on the selected layer only. Wheel =
-        brush size. Ctrl+Z = undo the last stroke.
+        brush size.
       </p>
     </section>
   );

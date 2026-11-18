@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-import { isTypingTarget, keyCommand, type KeyInput } from "./keys";
+import { ignoresKey, keyCommand, type KeyCommand, type KeyInput } from "./keys";
 
 const press = (key: string, modifiers: Partial<KeyInput> = {}): KeyInput => ({
   key,
@@ -31,8 +31,28 @@ describe("undo", () => {
     expect(keyCommand(press("Z", { metaKey: true }), true)).toEqual({ type: "undo" });
   });
 
-  it("is not a plain Z", () => {
+  it("is not a plain Z, and not Ctrl+Shift+Z", () => {
     expect(keyCommand(press("z"), true)).toBeNull();
+    expect(keyCommand(press("Z", { ctrlKey: true, shiftKey: true }), true)).not.toEqual({
+      type: "undo",
+    });
+  });
+});
+
+describe("redo", () => {
+  it("is Ctrl+Shift+Z, Ctrl+Y or their Meta forms, with or without a selection", () => {
+    expect(keyCommand(press("Z", { ctrlKey: true, shiftKey: true }), false)).toEqual({
+      type: "redo",
+    });
+    expect(keyCommand(press("z", { metaKey: true, shiftKey: true }), true)).toEqual({
+      type: "redo",
+    });
+    expect(keyCommand(press("y", { ctrlKey: true }), false)).toEqual({ type: "redo" });
+    expect(keyCommand(press("Y", { metaKey: true }), true)).toEqual({ type: "redo" });
+  });
+
+  it("is not a plain Y", () => {
+    expect(keyCommand(press("y"), true)).toBeNull();
   });
 });
 
@@ -78,18 +98,47 @@ describe("delete and copy", () => {
   });
 });
 
-describe("isTypingTarget", () => {
-  it("is true for a field, and for anything inside a dialog", () => {
-    document.body.innerHTML = `<input id="a"><textarea id="b"></textarea><select id="c"></select>
-      <dialog open><button id="d"></button></dialog><button id="e"></button>`;
-    for (const id of ["a", "b", "c", "d"]) {
-      expect(isTypingTarget(document.getElementById(id))).toBe(true);
+describe("ignoresKey", () => {
+  const undo: KeyCommand = { type: "undo" };
+  const redo: KeyCommand = { type: "redo" };
+  const remove: KeyCommand = { type: "delete" };
+  const byId = (id: string) => document.getElementById(id);
+
+  it("leaves undo and redo to the browser in a text field", () => {
+    document.body.innerHTML = `<textarea id="a"></textarea><input id="b" type="text">`;
+    for (const id of ["a", "b"]) {
+      expect(ignoresKey(undo, byId(id))).toBe(true);
+      expect(ignoresKey(redo, byId(id))).toBe(true);
     }
   });
 
-  it("is false for a button and for no target", () => {
-    document.body.innerHTML = `<button id="e"></button>`;
-    expect(isTypingTarget(document.getElementById("e"))).toBe(false);
-    expect(isTypingTarget(null)).toBe(false);
+  it("keeps undo and redo on a select, a checkbox and a colour input, which have no text undo", () => {
+    document.body.innerHTML = `<select id="a"></select><input id="b" type="checkbox"><input id="c" type="color">`;
+    for (const id of ["a", "b", "c"]) {
+      expect(ignoresKey(undo, byId(id))).toBe(false);
+      expect(ignoresKey(redo, byId(id))).toBe(false);
+    }
+  });
+
+  it("ignores every other command on a select, a checkbox and a text field", () => {
+    document.body.innerHTML = `<select id="a"></select><input id="b" type="checkbox"><input id="c">`;
+    for (const id of ["a", "b", "c"]) {
+      expect(ignoresKey(remove, byId(id))).toBe(true);
+    }
+  });
+
+  it("ignores every command inside a dialog", () => {
+    document.body.innerHTML = `<dialog open><button id="a"></button></dialog>`;
+    for (const command of [undo, redo, remove]) {
+      expect(ignoresKey(command, byId("a"))).toBe(true);
+    }
+  });
+
+  it("ignores nothing on the page itself", () => {
+    document.body.innerHTML = `<button id="a"></button>`;
+    for (const command of [undo, redo, remove]) {
+      expect(ignoresKey(command, byId("a"))).toBe(false);
+    }
+    expect(ignoresKey(undo, null)).toBe(false);
   });
 });

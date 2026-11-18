@@ -11,7 +11,6 @@ import {
   nudgeLayer,
   replaceLastStroke,
   startStroke,
-  undoStroke,
 } from "./layerOps";
 import type { ImageLayer, Layer, Stroke } from "./project";
 
@@ -218,15 +217,6 @@ describe("strokes on a layer", () => {
 
   it("leaves a layer with no strokes as it is when replacing the last one", () => {
     expect(replaceLastStroke(plain, first)).toBe(plain);
-  });
-
-  it("undoes the last stroke", () => {
-    expect(undoStroke(erased).erase).toEqual([first]);
-  });
-
-  it("has nothing to undo on a layer without strokes", () => {
-    expect(undoStroke(plain)).toBe(plain);
-    expect(undoStroke({ ...plain, erase: [] }).erase).toEqual([]);
   });
 
   it("clears every stroke", () => {

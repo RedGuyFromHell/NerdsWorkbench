@@ -45,7 +45,7 @@ The first run compiles Tauri from scratch and takes several minutes. Later runs 
 
 ## The gate
 
-`node tools/check.mjs` runs every check: Prettier, ESLint, rustfmt, gitleaks, `tsc`, Vitest, the Vite build, clippy and the Rust tests. `--fast` runs the quick ones (this is what the pre-commit hook runs) and `--only <name>` runs one. The steps are listed in `check.config.json`. Never commit with `--no-verify`.
+`node tools/check.mjs` runs every check: Prettier, ESLint, rustfmt, gitleaks, `tsc`, Vitest, the Vite build, clippy, the Rust tests and the Disc Studio parity test. `--fast` runs the quick ones (this is what the pre-commit hook runs) and `--only <name>` runs one. The steps are listed in `check.config.json`. Never commit with `--no-verify`.
 
 ## Layout
 
@@ -59,7 +59,17 @@ The first run compiles Tauri from scratch and takes several minutes. Later runs 
 
 ## Disc Studio
 
-Disc Studio designs a printable disc (a coaster or a badge): images and text on layers, a mask, an eraser, and a print PNG with the dpi written in. It is a port of `disc-studio.html`. Its pure logic is already here, in `src/tools/disc-studio/engine/`: `geometry.ts` (disc and layer maths), `maskAlpha.ts`, `pngDpi.ts`, `project.ts` (the file format, read with zod), `svg.ts` and `layerOps.ts`, each with a Vitest test beside it. The screen, the drawing and the parity test against the original come in the next slices.
+Disc Studio designs a printable disc (a coaster or a badge): images and text on layers, a mask, an eraser, and a print PNG with the dpi written in. It is a port of `disc-studio.html`. Its pure logic is already here, in `src/tools/disc-studio/engine/`: `geometry.ts` (disc and layer maths), `maskAlpha.ts`, `pngDpi.ts`, `project.ts` (the file format, read with zod), `svg.ts` and `layerOps.ts`, each with a Vitest test beside it. `document.ts` holds the open document (settings, layers, images, mask, `subscribe` and `getVersion` for React) and `render.ts` draws it. The screen comes in the next slices.
+
+### The parity test
+
+`render.ts` must draw the same pixels as the original `disc-studio.html`. `tests/disc-parity/` proves it: for each fixture project (`fixtures.ts`, built on a canvas in the page) a Playwright test renders it through an unchanged copy of the original (`reference/disc-studio.html`) and through the engine (`parity.html`), then compares the print and the view canvas byte for byte. There is no tolerance. Run it with:
+
+```powershell
+corepack pnpm exec playwright test
+```
+
+It starts its own Vite server on port 1421 (the app's 1420 stays free) and needs Microsoft Edge, which Windows has. The test uses Edge (`channel: "msedge"`) and downloads no browser, because the app's webview, WebView2, is Edge's Chromium: the same engine draws the same pixels. The original loads its fonts from Google, so the test serves it our bundled files (`src/styles/disc-fonts.css`) instead; both pages use the same font files. A failing fixture reports how many pixels differ. The gate runs this as the `disc-parity` step.
 
 ## The look
 

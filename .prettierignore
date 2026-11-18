@@ -11,3 +11,4 @@ playwright-report
 /CLAUDE.md
 /.githooks
 /.gitattributes
+/tests/disc-parity/reference

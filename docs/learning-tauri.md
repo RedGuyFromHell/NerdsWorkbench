@@ -61,3 +61,18 @@ See `src/tools/disc-studio/engine/project.ts:117`.
 
 Vitest runs tests in Node, which has no `document` and no `DOMParser`. Most of our tests need neither, so they run in plain Node (fast). `svg.ts` does need a DOM, so its test file starts with the comment `// @vitest-environment happy-dom`: Vitest then gives only that file a small fake browser from the `happy-dom` package, and every other file keeps the plain environment. It is like putting one test into a different Unity test assembly instead of changing the whole project. happy-dom is not a real browser: it proves our logic, and the pixel-exact drawing is proven separately against the original HTML.
 See `src/tools/disc-studio/engine/svg.test.ts:1`.
+
+## WebView2 is Edge, and why the parity test uses the installed Edge
+
+A Tauri window on Windows is a **WebView2** control, which is the Microsoft Edge browser engine (Chromium) embedded in an app, much like a Unity `WebView` or a C# `WebView2` control. So canvas drawing in our app behaves like canvas drawing in Edge. **Playwright** drives a real browser from a test: `channel: "msedge"` in `playwright.config.ts` tells it to start the Edge already installed on the PC instead of downloading its own Chromium, so the test runs on the same engine as the app. The Disc Studio parity test renders the same project through the original HTML and through our code in that Edge and compares every pixel.
+See `playwright.config.ts:12`.
+
+## Playwright serves the page through Vite, and routes the fonts
+
+The parity test needs two pages: the original `disc-studio.html` and our own `parity.html`. `webServer` in the Playwright config starts the Vite dev server first (on port 1421, because 1420 belongs to `tauri dev`), so both pages and the TypeScript they import are served by it. The original asks Google Fonts for its fonts; `context.route(...)` catches that request inside the test and answers with our bundled `@font-face` rules, so no test touches the network and both pages draw with the same font files. It is like pointing a C# `HttpClient` at a fake handler in a unit test.
+See `tests/disc-parity/parity.spec.ts:15`.
+
+## Why a byte-exact pixel comparison is allowed here
+
+Comparing screenshots usually needs a tolerance, because two machines draw anti-aliased edges a little differently. Here both images come from the same browser process on the same machine in the same minute, so the only thing that can differ is our code. That is why the test accepts zero differing pixels: a difference is a real bug, not noise. The test also checks that the reference print is not empty, because two blank canvases would be equal too.
+See `tests/disc-parity/parity.spec.ts:64`.

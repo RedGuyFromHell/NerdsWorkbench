@@ -4,7 +4,7 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   { ignores: ["dist/**", "src-tauri/**", "node_modules/**"] },
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "tests/**/*.ts", "playwright.config.ts"],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {

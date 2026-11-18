@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Disc Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Bebas+Neue&family=Cinzel+Decorative:wght@700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#16161a; --panel:#202026; --line:#33333b; --text:#e8e6e1; --mute:#9a98a0; --accent:#d9a441; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.4 system-ui, sans-serif; height:100vh; display:grid; grid-template-columns:250px 1fr 300px; overflow:hidden; }
+  aside { background:var(--panel); border-right:1px solid var(--line); overflow-y:auto; padding:12px; }
+  aside#right { border-right:0; border-left:1px solid var(--line); }
+  main { display:flex; align-items:center; justify-content:center; padding:16px; min-width:0; position:relative; }
+  canvas#view { width:min(100%, calc(100vh - 32px)); aspect-ratio:1; touch-action:none; cursor:default; border-radius:4px; }
+  main.drop canvas#view { outline:3px dashed var(--accent); }
+  h2 { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); margin:16px 0 8px; }
+  h2:first-child { margin-top:0; }
+  label.row { display:grid; grid-template-columns:1fr 92px; align-items:center; gap:6px; margin:4px 0; }
+  label.check { display:flex; gap:6px; align-items:center; margin:4px 0; }
+  input, select, textarea, button { font:inherit; color:var(--text); background:#2a2a31; border:1px solid var(--line); border-radius:4px; padding:4px 6px; min-width:0; }
+  textarea { width:100%; resize:vertical; }
+  input[type=color] { padding:0; height:26px; }
+  input[type=checkbox] { width:auto; }
+  button { cursor:pointer; padding:5px 8px; }
+  button:hover { border-color:var(--accent); }
+  button.primary { background:var(--accent); color:#1a1408; border-color:var(--accent); font-weight:600; }
+  .btns { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0; }
+  .btns button { flex:1 1 auto; }
+  .hint { color:var(--mute); font-size:12px; margin:6px 0; }
+  #layers { list-style:none; margin:0; padding:0; border:1px solid var(--line); border-radius:4px; min-height:32px; }
+  #layers li { display:flex; align-items:center; gap:4px; padding:4px 6px; border-bottom:1px solid var(--line); cursor:pointer; }
+  #layers li:last-child { border-bottom:0; }
+  #layers li.sel { background:#3a3220; }
+  #tools button.on { background:var(--accent); color:#1a1408; border-color:var(--accent); }
+  #layers li span { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #layers li button { padding:0 5px; }
+  #empty { position:absolute; pointer-events:none; color:var(--mute); text-align:center; }
+  input[type=file] { display:none; }
+</style>
+</head>
+<body>
+<aside id="left">
+  <h2>Disc (mm)</h2>
+  <label class="row">Diameter <input type="number" id="s-d" step="0.5"></label>
+  <label class="row">Hole <input type="number" id="s-hole" step="0.5"></label>
+  <label class="row">Bleed <input type="number" id="s-bleed" step="0.5"></label>
+  <label class="row">DPI <input type="number" id="s-dpi" step="10"></label>
+
+  <h2>Mask</h2>
+  <label class="row">Type
+    <select id="s-maskMode">
+      <option value="builtin">Built-in</option>
+      <option value="upload">Uploaded</option>
+      <option value="none">None (whole disc)</option>
+    </select>
+  </label>
+  <div id="builtin-opts">
+    <label class="row">Margin <input type="number" id="s-margin" step="0.5"></label>
+    <label class="row">Band <input type="number" id="s-band" step="0.5"></label>
+    <label class="row">Band curve <input type="number" id="s-curve" step="0.5"></label>
+  </div>
+  <div class="btns"><button id="btn-mask">Upload mask…</button></div>
+  <p class="hint">Mask file: transparent = no ink, or white = art and dark/grey = no ink. It is stretched to the full square.</p>
+
+  <h2>View</h2>
+  <label class="check"><input type="checkbox" id="s-guides"> Guides (cut + safe lines)</label>
+  <label class="check"><input type="checkbox" id="s-zones"> Tint the no-ink zones</label>
+  <label class="row">PLA colour <input type="color" id="s-pla"></label>
+  <label class="row">Background <input type="color" id="s-bg"></label>
+
+  <h2>Project</h2>
+  <div class="btns"><button id="btn-save">Save project</button><button id="btn-open">Open project</button></div>
+  <p class="hint">A project file keeps every image, so you can open it again and get the same result.</p>
+</aside>
+
+<main id="main">
+  <canvas id="view"></canvas>
+  <div id="empty">Drop images here,<br>or use “Add image”.</div>
+</main>
+
+<aside id="right">
+  <h2>Add</h2>
+  <div class="btns"><button id="btn-img">Add image</button><button id="btn-text">Add text</button></div>
+
+  <h2>Tool</h2>
+  <div class="btns" id="tools">
+    <button data-tool="move" title="V">Move (V)</button>
+    <button data-tool="erase" title="E">Eraser (E)</button>
+    <button data-tool="restore" title="R">Restore (R)</button>
+  </div>
+  <label class="row">Brush (mm) <input type="number" id="brush" step="0.5" min="0.2"></label>
+  <label class="row">Softness <input type="number" id="soft" step="0.1" min="0" max="1"></label>
+  <p class="hint">The eraser works on the selected layer only. Wheel = brush size. Ctrl+Z = undo the last stroke.</p>
+
+  <h2>Layers (top first)</h2>
+  <ul id="layers"></ul>
+
+  <div id="props"></div>
+
+  <h2>Export</h2>
+  <label class="row">File name <input type="text" id="s-name"></label>
+  <div class="btns"><button class="primary" id="btn-export">Export print PNG</button></div>
+  <div class="btns"><button id="btn-preview">Export preview</button></div>
+  <p class="hint">Print PNG: transparent where there is no ink, no guides, DPI saved in the file.</p>
+  <p class="hint">Mouse: drag = move · wheel = size · Shift+wheel = rotate · arrows = nudge 0.1 mm (Shift: 1 mm) · Del = delete · Ctrl+D = copy</p>
+</aside>
+
+<input type="file" id="f-img" accept="image/*,.svg" multiple>
+<input type="file" id="f-mask" accept="image/*,.svg">
+<input type="file" id="f-proj" accept=".json,application/json">
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const view = $("view");
+
+// ---------- state ----------
+const S = { d: 120, hole: 15, bleed: 1, dpi: 300, maskMode: "builtin", margin: 4, band: 20, curve: 12,
+            guides: true, zones: true, pla: "#f4f2ec", bg: "#8a8a8a", name: "disc-design" };
+let layers = [];          // bottom first
+let sel = null;           // selected layer
+let nextId = 1;
+const images = new Map(); // id -> { img, src }
+let mask = null;          // { img, src } for an uploaded mask
+let maskCanvas, discCanvas, zoneCanvas, outCanvas, tmpCanvas, eraseCanvas;
+let tool = "move", brush = 5, soft = 0;   // brush = diameter in mm, soft = 0 (hard) .. 1 (very soft)
+let hover = null, stroke = null;
+
+const k = () => S.dpi / 25.4;                      // px per mm
+const size = () => Math.round(k() * (S.d + 2 * S.bleed));
+const mk = (n) => { const c = document.createElement("canvas"); c.width = c.height = n; return c; };
+const ring = (p, c, r) => { if (r > 0) { p.moveTo(c + r, c); p.arc(c, c, r, 0, Math.PI * 2); } };
+const FONTS = ["Cinzel", "Cinzel Decorative", "Bebas Neue", "Inter", "Georgia", "Arial", "Impact", "Times New Roman"];
+
+// ---------- masks ----------
+function buildMasks() {
+  const n = size(), c = n / 2, K = k();
+  view.width = view.height = n;
+  outCanvas = mk(n); tmpCanvas = mk(n); eraseCanvas = mk(n);
+
+  // The cut shape with bleed: nothing is ever printed outside it.
+  discCanvas = mk(n);
+  let g = discCanvas.getContext("2d"), p = new Path2D();
+  ring(p, c, K * (S.d / 2 + S.bleed));
+  ring(p, c, K * Math.max(0, S.hole / 2 - S.bleed));
+  g.fill(p, "evenodd");
+
+  maskCanvas = mk(n);
+  g = maskCanvas.getContext("2d");
+  if (S.maskMode === "upload" && mask) {
+    g.drawImage(mask.img, 0, 0, n, n);
+    const id = g.getImageData(0, 0, n, n), a = id.data;
+    let hasAlpha = false;
+    for (let i = 3; i < a.length; i += 4) if (a[i] < 250) { hasAlpha = true; break; }
+    for (let i = 0; i < a.length; i += 4) {
+      if (!hasAlpha) {
+        const lum = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2];
+        a[i + 3] = Math.max(0, Math.min(255, (lum - 200) * 255 / 45));
+      }
+      a[i] = a[i + 1] = a[i + 2] = 0;
+    }
+    g.putImageData(id, 0, 0);
+  } else if (S.maskMode === "builtin") {
+    // Same maths as make-disc-art.mjs.
+    const m = S.margin;
+    p = new Path2D();
+    ring(p, c, m > 0 ? K * (S.d / 2 - m) : K * (S.d / 2 + S.bleed));
+    if (S.hole > 0) ring(p, c, m > 0 ? K * (S.hole / 2 + m) : Math.max(0, K * (S.hole / 2 - S.bleed)));
+    g.fill(p, "evenodd");
+    if (S.band > 0) {
+      const yPeak = c + K * (S.d / 2 - S.band), bow = K * S.curve, yTop = yPeak + bow;
+      const edge = bow > 0 ? `A ${(n * n / 4 + bow * bow) / (2 * bow)} ${(n * n / 4 + bow * bow) / (2 * bow)} 0 0 1 ${n} ${yTop}` : `L ${n} ${yTop}`;
+      g.globalCompositeOperation = "destination-out";
+      g.fill(new Path2D(`M 0 ${yTop} ${edge} L ${n} ${n} L 0 ${n} Z`));
+      g.globalCompositeOperation = "source-over";
+    }
+  } else {
+    g.drawImage(discCanvas, 0, 0);
+  }
+  g.globalCompositeOperation = "destination-in";
+  g.drawImage(discCanvas, 0, 0);
+  g.globalCompositeOperation = "source-over";
+
+  // Red tint on the disc where the mask gives no ink.
+  zoneCanvas = mk(n);
+  g = zoneCanvas.getContext("2d");
+  p = new Path2D(); ring(p, c, K * S.d / 2); ring(p, c, K * S.hole / 2);
+  g.fillStyle = "rgba(220,40,40,0.18)"; g.fill(p, "evenodd");
+  g.globalCompositeOperation = "destination-out"; g.drawImage(maskCanvas, 0, 0);
+}
+
+// ---------- layers ----------
+const measure = mk(1).getContext("2d");
+function fontStr(L, K) { return `${L.italic ? "italic " : ""}${L.bold ? 700 : 400} ${L.size * K}px "${L.font}"`; }
+function box(L) { // width and height in mm, before rotation
+  if (L.type === "image") { const im = images.get(L.img).img; return [L.w, L.w * im.naturalHeight / im.naturalWidth]; }
+  measure.font = fontStr(L, 10); measure.letterSpacing = `${L.spacing * 10}px`;
+  const lines = L.text.split("\n");
+  return [Math.max(...lines.map((s) => measure.measureText(s).width)) / 10 + 0.01, lines.length * L.size * 1.15];
+}
+function layerTransform(t, L) {
+  const K = k(), c = size() / 2;
+  t.setTransform(1, 0, 0, 1, 0, 0);
+  t.translate(c + L.x * K, c + L.y * K);
+  t.rotate(L.rot * Math.PI / 180);
+  if (L.flip) t.scale(-1, 1);
+}
+// Eraser strokes are stored in the layer's own units (share of its width),
+// so they move, turn and scale with the layer and the result is always the same.
+function toLocal(L, mx, my) {
+  const a = -L.rot * Math.PI / 180, dx = mx - L.x, dy = my - L.y, w = box(L)[0];
+  let lx = dx * Math.cos(a) - dy * Math.sin(a);
+  const ly = dx * Math.sin(a) + dy * Math.cos(a);
+  if (L.flip) lx = -lx;
+  return [lx / w, ly / w];
+}
+function applyErase(t, L) {
+  if (!L.erase || !L.erase.length) return;
+  const n = size(), e = eraseCanvas.getContext("2d"), s = box(L)[0] * k();
+  e.setTransform(1, 0, 0, 1, 0, 0); e.globalCompositeOperation = "source-over"; e.filter = "none";
+  e.clearRect(0, 0, n, n); e.fillStyle = "#000"; e.fillRect(0, 0, n, n);
+  e.lineCap = "round"; e.lineJoin = "round"; e.strokeStyle = "#000";
+  for (const st of L.erase) {
+    layerTransform(e, L); e.scale(s, s);
+    e.globalCompositeOperation = st.mode === "restore" ? "source-over" : "destination-out";
+    // Softness blurs the brush edge; the blur is in canvas pixels, so it is scaled from mm.
+    e.filter = st.soft > 0 ? `blur(${st.soft * st.r * s * 0.5}px)` : "none";
+    e.lineWidth = st.r * 2 * (st.soft > 0 ? 1 - st.soft * 0.5 : 1);
+    e.beginPath();
+    st.pts.forEach(([u, v], i) => (i ? e.lineTo(u, v) : e.moveTo(u, v)));
+    if (st.pts.length === 1) e.lineTo(st.pts[0][0], st.pts[0][1]);
+    e.stroke();
+  }
+  e.setTransform(1, 0, 0, 1, 0, 0); e.globalCompositeOperation = "source-over"; e.filter = "none";
+  t.setTransform(1, 0, 0, 1, 0, 0);
+  t.globalCompositeOperation = "destination-in"; t.drawImage(eraseCanvas, 0, 0);
+  t.globalCompositeOperation = "source-over";
+}
+function drawLayer(t, L) {
+  const K = k();
+  layerTransform(t, L);
+  if (L.type === "image") {
+    const [w, h] = box(L);
+    t.drawImage(images.get(L.img).img, -w * K / 2, -h * K / 2, w * K, h * K);
+    if (L.tint) { // recolour: every painted pixel becomes one colour, the edges stay smooth
+      t.setTransform(1, 0, 0, 1, 0, 0);
+      t.globalCompositeOperation = "source-in"; t.fillStyle = L.tintColor; t.fillRect(0, 0, size(), size());
+      t.globalCompositeOperation = "source-over";
+    }
+  } else {
+    t.font = fontStr(L, K); t.letterSpacing = `${L.spacing * K}px`;
+    t.textAlign = "center"; t.textBaseline = "middle";
+    const lines = L.text.split("\n"), lh = L.size * 1.15 * K;
+    lines.forEach((s, i) => {
+      const y = (i - (lines.length - 1) / 2) * lh;
+      if (L.strokeW > 0) { t.lineJoin = "round"; t.lineWidth = L.strokeW * K * 2; t.strokeStyle = L.stroke; t.strokeText(s, 0, y); }
+      t.fillStyle = L.color; t.fillText(s, 0, y);
+    });
+  }
+  t.setTransform(1, 0, 0, 1, 0, 0);
+}
+function compose() { // the print: transparent = no ink
+  const n = size(), o = outCanvas.getContext("2d"), t = tmpCanvas.getContext("2d");
+  o.clearRect(0, 0, n, n);
+  for (const L of layers) {
+    if (!L.visible) continue;
+    t.globalCompositeOperation = "source-over"; t.clearRect(0, 0, n, n);
+    drawLayer(t, L);
+    applyErase(t, L);
+    if (L.clip !== "none") {
+      t.globalCompositeOperation = "destination-in";
+      t.drawImage(L.clip === "mask" ? maskCanvas : discCanvas, 0, 0);
+      t.globalCompositeOperation = "source-over";
+    }
+    o.globalAlpha = L.opacity; o.drawImage(tmpCanvas, 0, 0); o.globalAlpha = 1;
+  }
+  o.globalCompositeOperation = "destination-in"; o.drawImage(discCanvas, 0, 0);
+  o.globalCompositeOperation = "source-over";
+  return outCanvas;
+}
+
+// ---------- view ----------
+function draw(withSel = true) {
+  const n = size(), c = n / 2, K = k(), v = view.getContext("2d");
+  v.setTransform(1, 0, 0, 1, 0, 0);
+  v.fillStyle = S.bg; v.fillRect(0, 0, n, n);
+  const p = new Path2D(); ring(p, c, K * S.d / 2); ring(p, c, K * S.hole / 2);
+  v.fillStyle = S.pla; v.fill(p, "evenodd");                 // bare PLA
+  if (S.zones) v.drawImage(zoneCanvas, 0, 0);
+  v.drawImage(compose(), 0, 0);
+  if (S.guides) {
+    const lw = Math.max(2, n / 400), safe = S.maskMode === "builtin" && S.margin > 0 ? S.margin + 2 : 4;
+    const circle = (r, col, dash) => { v.beginPath(); v.arc(c, c, r, 0, Math.PI * 2); v.lineWidth = lw; v.strokeStyle = col; v.setLineDash(dash ? [lw * 6, lw * 4] : []); v.stroke(); };
+    circle(K * S.d / 2, "#e00", false);
+    circle(K * (S.d / 2 - safe), "#fff", true);
+    if (S.hole > 0) { circle(K * S.hole / 2, "#e00", false); circle(K * (S.hole / 2 + safe), "#fff", true); }
+    v.setLineDash([]);
+  }
+  if (withSel && sel && sel.visible) {
+    const [w, h] = box(sel);
+    v.translate(c + sel.x * K, c + sel.y * K); v.rotate(sel.rot * Math.PI / 180);
+    v.lineWidth = Math.max(2, n / 500); v.strokeStyle = "#3aa0ff"; v.setLineDash([10, 6]);
+    v.strokeRect(-w * K / 2, -h * K / 2, w * K, h * K);
+    v.setTransform(1, 0, 0, 1, 0, 0); v.setLineDash([]);
+  }
+  if (withSel && tool !== "move" && hover) { // brush outline
+    v.beginPath(); v.arc(c + hover[0] * K, c + hover[1] * K, brush / 2 * K, 0, Math.PI * 2);
+    v.lineWidth = Math.max(2, n / 600); v.strokeStyle = "#000"; v.stroke();
+    v.setLineDash([6, 6]); v.strokeStyle = "#fff"; v.stroke(); v.setLineDash([]);
+  }
+  $("empty").style.display = layers.length ? "none" : "block";
+}
+let queued = false;
+function req() { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; draw(); }); } }
+
+// ---------- layer list + properties ----------
+function renderList() {
+  const ul = $("layers"); ul.innerHTML = "";
+  [...layers].reverse().forEach((L) => {
+    const li = document.createElement("li");
+    if (L === sel) li.className = "sel";
+    li.innerHTML = `<input type="checkbox" ${L.visible ? "checked" : ""} title="Show"><span></span>
+      <button title="Up">↑</button><button title="Down">↓</button><button title="Delete">✕</button>`;
+    li.querySelector("span").textContent = L.name;
+    const [vis, up, down, del] = li.querySelectorAll("input,button");
+    vis.onclick = (e) => { e.stopPropagation(); L.visible = vis.checked; req(); };
+    up.onclick = (e) => { e.stopPropagation(); move(L, 1); };
+    down.onclick = (e) => { e.stopPropagation(); move(L, -1); };
+    del.onclick = (e) => { e.stopPropagation(); remove(L); };
+    li.onclick = () => select(L);
+    ul.appendChild(li);
+  });
+}
+function move(L, dir) {
+  const i = layers.indexOf(L), j = i + dir;
+  if (j < 0 || j >= layers.length) return;
+  [layers[i], layers[j]] = [layers[j], layers[i]]; renderList(); req();
+}
+function remove(L) { layers = layers.filter((x) => x !== L); if (sel === L) sel = null; renderList(); renderProps(); req(); }
+function select(L) { sel = L; renderList(); renderProps(); req(); }
+
+function field(label, key, type, extra = "") {
+  return `<label class="row">${label} <input type="${type}" data-k="${key}" ${extra}></label>`;
+}
+function renderProps() {
+  const P = $("props");
+  if (!sel) { P.innerHTML = ""; return; }
+  const L = sel;
+  let h = `<h2>${L.type === "image" ? "Image" : "Text"}</h2>`;
+  if (L.type === "text") {
+    h += `<textarea data-k="text" rows="2"></textarea>`;
+    h += `<label class="row">Font <select data-k="font">${FONTS.map((f) => `<option>${f}</option>`).join("")}</select></label>`;
+    h += field("Size (mm)", "size", "number", 'step="0.1"');
+    h += field("Spacing (mm)", "spacing", "number", 'step="0.05"');
+    h += field("Colour", "color", "color");
+    h += field("Outline (mm)", "strokeW", "number", 'step="0.05" min="0"');
+    h += field("Outline colour", "stroke", "color");
+    h += `<label class="check"><input type="checkbox" data-k="bold"> Bold</label><label class="check"><input type="checkbox" data-k="italic"> Italic</label>`;
+  } else {
+    h += field("Width (mm)", "w", "number", 'step="0.5"');
+    h += `<div class="btns"><button data-a="cover">Cover disc</button><button data-a="fit">Fit in disc</button></div>`;
+    L.tintColor ??= "#111111";
+    h += `<label class="check"><input type="checkbox" data-k="tint"> Recolour (one colour, for logos)</label>`;
+    h += field("Colour", "tintColor", "color");
+  }
+  h += field("X from centre (mm)", "x", "number", 'step="0.1"');
+  h += field("Y from centre (mm)", "y", "number", 'step="0.1"');
+  h += field("Rotation (°)", "rot", "number", 'step="0.5"');
+  h += field("Opacity", "opacity", "number", 'step="0.05" min="0" max="1"');
+  h += `<label class="row">Clip to <select data-k="clip"><option value="mask">Mask</option><option value="disc">Whole disc</option><option value="none">Nothing</option></select></label>`;
+  h += `<label class="check"><input type="checkbox" data-k="flip"> Mirror</label>`;
+  h += `<div class="btns"><button data-a="center">Centre</button><button data-a="dup">Copy</button></div>`;
+  if (L.erase && L.erase.length) h += `<div class="btns"><button data-a="clearErase">Clear eraser (${L.erase.length} strokes)</button></div>`;
+  P.innerHTML = h;
+  P.querySelectorAll("[data-k]").forEach((el) => {
+    const key = el.dataset.k;
+    if (el.type === "checkbox") el.checked = !!L[key]; else el.value = L[key];
+    el.addEventListener("input", () => {
+      L[key] = el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value;
+      if (key === "text") { L.name = L.text.split("\n")[0].slice(0, 30) || "Text"; renderList(); }
+      if (key === "font" || key === "bold" || key === "italic") document.fonts.load(fontStr(L, 10)).then(req);
+      req();
+    });
+  });
+  P.querySelectorAll("[data-a]").forEach((b) => b.onclick = () => action(b.dataset.a));
+}
+function syncProps() {
+  if (!sel) return;
+  $("props").querySelectorAll("input[type=number][data-k]").forEach((el) => {
+    if (document.activeElement !== el) el.value = round(sel[el.dataset.k]);
+  });
+}
+const round = (v) => Math.round(v * 100) / 100;
+function action(a) {
+  const L = sel; if (!L) return;
+  if (a === "center") { L.x = 0; L.y = 0; }
+  if (a === "cover" || a === "fit") {
+    const im = images.get(L.img).img, ar = im.naturalWidth / im.naturalHeight;
+    L.w = (a === "cover") === (ar >= 1) ? S.d * ar : S.d; L.x = 0; L.y = 0;
+  }
+  if (a === "clearErase") L.erase = [];
+  if (a === "dup") { const C = { ...L, erase: structuredClone(L.erase ?? []), id: nextId++, name: L.name + " copy", x: L.x + 2, y: L.y + 2 }; layers.splice(layers.indexOf(L) + 1, 0, C); sel = C; renderList(); }
+  renderProps(); req();
+}
+
+// ---------- adding things ----------
+function readFile(file) {
+  return new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(file); });
+}
+function loadImg(src) {
+  return new Promise((ok, bad) => { const im = new Image(); im.onload = () => ok(im); im.onerror = bad; im.src = src; });
+}
+// SVG: give it a viewBox and a big pixel size, so it is drawn sharp at any print size.
+function prepareSvg(text) {
+  const svg = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
+  if (svg.nodeName.toLowerCase() !== "svg") throw new Error("This SVG file cannot be read.");
+  let w = parseFloat(svg.getAttribute("width")), h = parseFloat(svg.getAttribute("height"));
+  if (!svg.getAttribute("viewBox")) {
+    if (!(w > 0 && h > 0)) w = h = 1000;
+    svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
+  const [, , vw, vh] = svg.getAttribute("viewBox").trim().split(/[\s,]+/).map(Number);
+  const long = 4096;
+  svg.setAttribute("width", vw >= vh ? long : Math.round(long * vw / vh));
+  svg.setAttribute("height", vw >= vh ? Math.round(long * vh / vw) : long);
+  return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(new XMLSerializer().serializeToString(svg));
+}
+const isSvg = (f) => f.type === "image/svg+xml" || /\.svg$/i.test(f.name);
+async function fileSrc(f) { return isSvg(f) ? prepareSvg(await f.text()) : readFile(f); }
+async function addImage(src, name) {
+  const img = await loadImg(src), id = "i" + nextId++;
+  images.set(id, { img, src });
+  const ar = img.naturalWidth / img.naturalHeight;
+  const L = { id: nextId++, type: "image", name, img: id, x: 0, y: 0, w: ar >= 1 ? S.d * ar : S.d, rot: 0, opacity: 1,
+              clip: layers.length ? "disc" : "mask", flip: false, visible: true };
+  layers.push(L); select(L);
+  // Warn when the image will be printed below the DPI.
+  const pxNeeded = L.w * k();
+  if (!src.startsWith("data:image/svg") && img.naturalWidth < pxNeeded * 0.95) console.warn(`${name}: ${img.naturalWidth}px wide, needs ${Math.round(pxNeeded)}px for ${S.dpi} dpi.`);
+}
+function addText() {
+  const L = { id: nextId++, type: "text", name: "NERD CASTLE", text: "NERD CASTLE", font: "Cinzel", size: 6, spacing: 0.4,
+              color: "#1a1a1a", stroke: "#ffffff", strokeW: 0, bold: true, italic: false,
+              x: 0, y: S.maskMode === "builtin" && S.band > 0 ? S.d / 2 - S.band / 2 : 0, rot: 0, opacity: 1, clip: "disc", flip: false, visible: true };
+  layers.push(L); select(L);
+  document.fonts.load(fontStr(L, 10)).then(req);
+}
+async function addFiles(files) {
+  for (const f of files) {
+    if (!f.type.startsWith("image/") && !isSvg(f)) continue;
+    try { await addImage(await fileSrc(f), f.name.replace(/\.[^.]+$/, "")); }
+    catch (err) { alert(`${f.name}: ${err.message || "this image cannot be opened."}`); }
+  }
+}
+
+// ---------- export ----------
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const b of bytes) { let x = (crc ^ b) & 0xff; for (let j = 0; j < 8; j++) x = x & 1 ? (x >>> 1) ^ 0xedb88320 : x >>> 1; crc = (crc >>> 8) ^ x; }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+async function pngWithDpi(canvas) { // adds a pHYs chunk so print apps read the right size
+  const blob = await new Promise((ok) => canvas.toBlob(ok, "image/png"));
+  const src = new Uint8Array(await blob.arrayBuffer()), ppm = Math.round(S.dpi / 0.0254);
+  const ch = new Uint8Array(21), dv = new DataView(ch.buffer);
+  dv.setUint32(0, 9); ch.set([112, 72, 89, 115], 4); dv.setUint32(8, ppm); dv.setUint32(12, ppm); ch[16] = 1;
+  dv.setUint32(17, crc32(ch.subarray(4, 17)));
+  const out = new Uint8Array(src.length + 21);
+  out.set(src.subarray(0, 33)); out.set(ch, 33); out.set(src.subarray(33), 54);
+  return new Blob([out], { type: "image/png" });
+}
+function download(blob, name) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ---------- project ----------
+function saveProject() {
+  const data = { app: "disc-studio", v: 1, S, mask: mask ? mask.src : null,
+                 images: Object.fromEntries([...images].map(([id, v]) => [id, v.src])), layers };
+  download(new Blob([JSON.stringify(data)], { type: "application/json" }), `${S.name}.disc.json`);
+}
+async function openProject(file) {
+  const data = JSON.parse(await (await fetch(await readFile(file))).text());
+  if (data.app !== "disc-studio") throw new Error("Not a Disc Studio project.");
+  Object.assign(S, data.S);
+  images.clear();
+  for (const [id, src] of Object.entries(data.images)) images.set(id, { img: await loadImg(src), src });
+  mask = data.mask ? { img: await loadImg(data.mask), src: data.mask } : null;
+  layers = data.layers; sel = null;
+  nextId = 1 + Math.max(0, ...layers.map((L) => L.id), ...[...images.keys()].map((id) => Number(id.slice(1))));
+  await Promise.all(layers.filter((L) => L.type === "text").map((L) => document.fonts.load(fontStr(L, 10))));
+  loadSettings(); buildMasks(); renderList(); renderProps(); req();
+}
+
+// ---------- settings ----------
+const SKEYS = ["d", "hole", "bleed", "dpi", "maskMode", "margin", "band", "curve", "guides", "zones", "pla", "bg", "name"];
+function loadSettings() {
+  for (const key of SKEYS) { const el = $("s-" + key); if (el.type === "checkbox") el.checked = S[key]; else el.value = S[key]; }
+  $("builtin-opts").style.display = S.maskMode === "builtin" ? "" : "none";
+}
+for (const key of SKEYS) {
+  $("s-" + key).addEventListener("input", (e) => {
+    const el = e.target;
+    S[key] = el.type === "checkbox" ? el.checked : el.type === "number" ? Number(el.value) : el.value;
+    if (key === "maskMode") { $("builtin-opts").style.display = S.maskMode === "builtin" ? "" : "none"; if (S.maskMode === "upload" && !mask) $("f-mask").click(); }
+    if (!["guides", "zones", "pla", "bg", "name"].includes(key)) buildMasks();
+    req();
+  });
+}
+
+// ---------- pointer + keys ----------
+function toMm(e) {
+  const r = view.getBoundingClientRect(), n = size();
+  return [((e.clientX - r.left) / r.width * n - n / 2) / k(), ((e.clientY - r.top) / r.height * n - n / 2) / k()];
+}
+function hit(mx, my) {
+  for (let i = layers.length - 1; i >= 0; i--) {
+    const L = layers[i]; if (!L.visible) continue;
+    const a = -L.rot * Math.PI / 180, dx = mx - L.x, dy = my - L.y;
+    const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a), [w, h] = box(L);
+    if (Math.abs(lx) <= w / 2 && Math.abs(ly) <= h / 2) return L;
+  }
+  return null;
+}
+let drag = null;
+function setTool(t) {
+  tool = t;
+  document.querySelectorAll("#tools button").forEach((b) => b.classList.toggle("on", b.dataset.tool === t));
+  view.style.cursor = t === "move" ? "default" : "none";
+  req();
+}
+view.addEventListener("pointerdown", (e) => {
+  const [mx, my] = toMm(e);
+  if (tool !== "move") {
+    if (!sel) select(hit(mx, my));
+    if (!sel) return;
+    sel.erase ??= [];
+    stroke = { mode: tool, r: brush / 2 / box(sel)[0], soft, pts: [toLocal(sel, mx, my).map(round4)] };
+    sel.erase.push(stroke);
+    view.setPointerCapture(e.pointerId); req();
+    return;
+  }
+  const L = hit(mx, my);
+  if (L !== sel) select(L);
+  if (L) { drag = { mx, my, x: L.x, y: L.y }; view.setPointerCapture(e.pointerId); view.style.cursor = "grabbing"; }
+});
+const round4 = (v) => Math.round(v * 1e4) / 1e4;
+view.addEventListener("pointermove", (e) => {
+  const [mx, my] = toMm(e);
+  hover = [mx, my];
+  if (stroke && sel) {
+    const p = toLocal(sel, mx, my).map(round4), q = stroke.pts[stroke.pts.length - 1];
+    if (Math.hypot(p[0] - q[0], p[1] - q[1]) > stroke.r * 0.15) stroke.pts.push(p);
+    req(); return;
+  }
+  if (tool !== "move") { req(); return; }
+  if (drag && sel) { sel.x = drag.x + mx - drag.mx; sel.y = drag.y + my - drag.my; syncProps(); req(); return; }
+  view.style.cursor = hit(mx, my) ? "grab" : "default";
+});
+view.addEventListener("pointerup", () => {
+  drag = null;
+  if (stroke) { stroke = null; renderProps(); }
+  view.style.cursor = tool === "move" ? "default" : "none";
+});
+view.addEventListener("pointerleave", () => { hover = null; req(); });
+view.addEventListener("wheel", (e) => {
+  const dir = e.deltaY < 0 ? 1 : -1;
+  if (tool !== "move") { e.preventDefault(); brush = round(Math.max(0.2, brush * Math.pow(1.1, dir))); $("brush").value = brush; req(); return; }
+  if (!sel) return;
+  e.preventDefault();
+  if (e.shiftKey) sel.rot = round(sel.rot + dir * (e.altKey ? 0.1 : 1));
+  else if (sel.type === "image") sel.w *= Math.pow(e.altKey ? 1.005 : 1.03, dir);
+  else sel.size *= Math.pow(e.altKey ? 1.005 : 1.03, dir);
+  syncProps(); req();
+}, { passive: false });
+document.addEventListener("keydown", (e) => {
+  if (e.target.closest?.("input,textarea,select")) return;
+  const key = e.key.toLowerCase(), plain = !e.ctrlKey && !e.metaKey && !e.altKey;
+  if (plain && { v: 1, e: 1, r: 1 }[key]) { setTool({ v: "move", e: "erase", r: "restore" }[key]); return; }
+  if ((e.ctrlKey || e.metaKey) && key === "z") {
+    e.preventDefault();
+    if (sel && sel.erase && sel.erase.length) { sel.erase.pop(); renderProps(); req(); }
+    return;
+  }
+  if (!sel) return;
+  const step = e.shiftKey ? 1 : 0.1;
+  const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+  if (moves[e.key]) { e.preventDefault(); sel.x = round(sel.x + moves[e.key][0]); sel.y = round(sel.y + moves[e.key][1]); syncProps(); req(); }
+  else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); remove(sel); }
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "d") { e.preventDefault(); action("dup"); }
+});
+
+// ---------- drag and drop files ----------
+const main = $("main");
+main.addEventListener("dragover", (e) => { e.preventDefault(); main.classList.add("drop"); });
+main.addEventListener("dragleave", () => main.classList.remove("drop"));
+main.addEventListener("drop", (e) => { e.preventDefault(); main.classList.remove("drop"); addFiles(e.dataTransfer.files); });
+
+// ---------- buttons ----------
+document.querySelectorAll("#tools button").forEach((b) => b.onclick = () => setTool(b.dataset.tool));
+$("brush").value = brush; $("soft").value = soft;
+$("brush").oninput = (e) => { brush = Math.max(0.2, Number(e.target.value) || brush); req(); };
+$("soft").oninput = (e) => { soft = Math.min(1, Math.max(0, Number(e.target.value) || 0)); };
+$("btn-img").onclick = () => $("f-img").click();
+$("btn-text").onclick = addText;
+$("btn-mask").onclick = () => $("f-mask").click();
+$("btn-save").onclick = saveProject;
+$("btn-open").onclick = () => $("f-proj").click();
+$("f-img").onchange = (e) => { addFiles(e.target.files); e.target.value = ""; };
+$("f-mask").onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const src = await fileSrc(f); mask = { img: await loadImg(src), src };
+  S.maskMode = "upload"; loadSettings(); buildMasks(); req(); e.target.value = "";
+};
+$("f-proj").onchange = (e) => { const f = e.target.files[0]; if (f) openProject(f).catch((err) => alert(err.message)); e.target.value = ""; };
+$("btn-export").onclick = async () => download(await pngWithDpi(compose()), `${S.name}.png`);
+$("btn-preview").onclick = async () => { draw(false); download(await pngWithDpi(view), `${S.name}-preview.png`); req(); };
+
+// For quick tests from the console.
+window.DS = { S, get layers() { return layers; }, addImage, addText, compose, buildMasks, draw, pngWithDpi };
+
+loadSettings(); buildMasks(); setTool("move"); draw();
+document.fonts.ready.then(req);
+</script>
+</body>
+</html>

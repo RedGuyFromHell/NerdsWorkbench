@@ -1,5 +1,5 @@
 // The right-hand column: 01 Visual, 02 Discount, 03 Code, and the GENERATE! button with the reason
-// it is disabled. It only shows and edits the settings; the screen owns them.
+// it is disabled, or how far a run is. It only shows and edits the settings; the screen owns them.
 import { Button } from "../../ui/Button";
 import { Checkbox } from "../../ui/Checkbox";
 import { ColorField } from "../../ui/ColorField";
@@ -8,6 +8,7 @@ import { NumberField } from "../../ui/NumberField";
 import { SectionHeader } from "../../ui/SectionHeader";
 import { Select } from "../../ui/Select";
 import type { GenerateCheck } from "./core/generateGuard";
+import { formatGenerateProgress } from "./core/generateRun";
 import {
   FONT_SIZE_RANGE,
   LETTER_SPACING_RANGE,
@@ -20,6 +21,7 @@ import {
 import { DiscountSection, type ShopifyConnection } from "./DiscountSection";
 import { PathField } from "./PathField";
 import type { CollectionsState } from "./useCollections";
+import type { GenerateState } from "./useGenerateRun";
 
 interface SettingsPanelProps {
   settings: VoucherSettings;
@@ -32,6 +34,8 @@ interface SettingsPanelProps {
   collections: CollectionsState;
   onOpenSettings(): void;
   generate: GenerateCheck;
+  generation: GenerateState;
+  onGenerate(): void;
 }
 
 interface SectionProps {
@@ -150,16 +154,46 @@ function CodeSection({
   );
 }
 
-function GenerateBox({ generate, settings }: Pick<SettingsPanelProps, "generate" | "settings">) {
-  const count = settings.voucherCount;
-  const hint = generate.canGenerate
-    ? `→ will create ${count.toLocaleString("en-US")} voucher${count === 1 ? "" : "s"} at ${settings.savePath}`
-    : `✦ ${generate.reason}`;
-  // WHY: no onClick yet. Generating (the codes, the discount, the images) is the next slice.
+const GENERATE_LABELS: Readonly<Record<GenerateState["kind"], string>> = {
+  idle: "GENERATE!",
+  generating: "GENERATING…",
+  done: "DONE!",
+};
+
+function countVouchers(count: number): string {
+  return `${count.toLocaleString("en-US")} voucher${count === 1 ? "" : "s"}`;
+}
+
+function describeGenerate(
+  generate: GenerateCheck,
+  generation: GenerateState,
+  settings: VoucherSettings,
+): string {
+  if (generation.kind === "generating") return `… ${formatGenerateProgress(generation.progress)}`;
+  if (generation.kind === "done") {
+    const { imagesWritten, codesPath } = generation.outcome;
+    return `→ created ${countVouchers(imagesWritten)}; the codes are in ${codesPath}`;
+  }
+  if (!generate.canGenerate) return `✦ ${generate.reason}`;
+  return `→ will create ${countVouchers(settings.voucherCount)} at ${settings.savePath}`;
+}
+
+type GenerateBoxProps = Pick<
+  SettingsPanelProps,
+  "generate" | "generation" | "onGenerate" | "settings"
+>;
+
+function GenerateBox({ generate, generation, onGenerate, settings }: GenerateBoxProps) {
+  const hint = describeGenerate(generate, generation, settings);
   return (
     <div className="voucher-generate">
-      <Button variant="primary" size="large" disabled={!generate.canGenerate}>
-        GENERATE!
+      <Button
+        variant="primary"
+        size="large"
+        disabled={!generate.canGenerate || generation.kind !== "idle"}
+        onClick={onGenerate}
+      >
+        {GENERATE_LABELS[generation.kind]}
       </Button>
       <p className="voucher-hint" role="status">
         {hint}
@@ -179,6 +213,8 @@ export function SettingsPanel({
   collections,
   onOpenSettings,
   generate,
+  generation,
+  onGenerate,
 }: SettingsPanelProps) {
   return (
     <aside className="voucher-settings">
@@ -197,7 +233,12 @@ export function SettingsPanel({
         onOpenSettings={onOpenSettings}
       />
       <CodeSection settings={settings} onChange={onChange} onChooseFolder={onChooseFolder} />
-      <GenerateBox generate={generate} settings={settings} />
+      <GenerateBox
+        generate={generate}
+        generation={generation}
+        onGenerate={onGenerate}
+        settings={settings}
+      />
     </aside>
   );
 }

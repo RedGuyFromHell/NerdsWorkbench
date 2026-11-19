@@ -1,13 +1,22 @@
 # Nerd's Workbench
 
-A Windows desktop app with the small tools Nerd Castle uses. It is built on Tauri 2 with React and TypeScript (Vite). It replaces the old PyQt app, which lives on in the `NerdsWorkbench-legacy` repo.
+A Windows desktop app with the small tools Nerd Castle uses, built on Tauri 2 with React and TypeScript (Vite). This is version 1.0: it replaces the old PyQt app, which lives on in the `NerdsWorkbench-legacy` repo and is no longer needed (see "Retire the old app" in `docs/releasing.md`).
 
-The home screen shows one tile per tool. Planned tools:
+The home screen shows one tile per tool:
 
-- **Disc Studio**: a port of `disc-studio.html`.
-- **Voucher Generator**: the voucher tab of the old app, same features.
+- **Disc Studio**: designs a printable disc (a coaster or a badge) and exports the print PNG.
+- **Voucher Generator**: makes a batch of unique discount codes, creates the discount in Shopify and writes one voucher image per code.
+- **Payout**: works out, once a month, what each printer and painter is owed.
 
-Disc Studio is in the app. The Voucher Generator is being ported: its decisions and the Shopify connection are in, its screen is not yet.
+## Install and update
+
+Download the newest setup `.exe` from this repo's Releases page and run it. The installer is per user: it needs no admin rights. Windows SmartScreen may warn about an unknown publisher; choose _More info_, then _Run anyway_.
+
+The app looks for a newer release on every start and offers it in a prompt; _Update now_ downloads it, installs it and restarts the app. Settings (the gear at the left of the status bar) shows the installed version.
+
+## Releasing
+
+A release is a tag `vX.Y.Z` pushed to GitHub, with the same version in `package.json`. The steps, what the installer registers and how to retire the old PyQt app are in `docs/releasing.md`.
 
 ## Development setup
 
@@ -174,7 +183,7 @@ Makes a batch of unique discount codes, creates the matching discount in Shopify
 
 ### Using the screen
 
-The preview is on the left, the settings on the right. GENERATE! is shown but does not generate yet; it says what is still missing under the button.
+The preview is on the left, the settings on the right. Under the GENERATE! button a line says what is still missing, or what a run will create.
 
 1. **Choose Voucher** (or drop an image on the screen): a jpg, png or webp template. It is shown at the largest size that fits, and every number below is in the template's own pixels.
 2. **Draw the code area** on the preview: press and drag. Drag the area to move it, drag a round corner handle to resize it. An area under 8 pixels on a side is dropped when you let go.
@@ -186,7 +195,25 @@ The font list is every font installed on the PC (read by Rust with `fontdb`, `sr
 
 GENERATE! stays off, with the reason, until there is a template, a code area, a save folder, a prefix and a Shopify connection. A discount set to "Specific Collections" with none picked is also blocked: the old app turned that into a discount on **every** product.
 
+### What GENERATE! does
+
+One press is one run, in this order (`core/generateRun.ts`, tested with stand-ins for Shopify and the disk):
+
+1. It makes the codes and writes them to `codes.csv` in the save folder (a header line `code`, then one code per line). The file is written before anything is sent to Shopify, so the codes can never exist only there.
+2. It creates **one** discount in Shopify, titled `Workbench — <prefix>`, with the first code. The start date begins at 00:00:00 UTC and the end date ends at 23:59:59 UTC, as in the old app.
+3. It adds the other codes in batches of 250 and waits for Shopify to finish each batch (up to two minutes a batch) before it sends the next.
+4. It writes one image per code to the save folder, named after the code: JPG at quality 0.95 for a jpg template, PNG for a png or webp one. A character Windows does not allow in a file name becomes `-` in the name; the code itself is unchanged.
+
+While it runs, the button says GENERATING… and the line under it shows the step and the count; then DONE! for about two seconds. The voucher image cannot be changed during a run. A run overwrites a `codes.csv` and images of the same names already in the folder: use a fresh folder for each batch.
+
+If something fails, a message window says what exists:
+
+- **Before the discount was created:** "Nothing was created in Shopify." If `codes.csv` was already written, its codes do not exist in Shopify: delete the file.
+- **After the discount was created:** the message names the discount, how many of the codes are in Shopify (or how many images were written) and the path of `codes.csv`. Delete that discount in the Shopify admin (Discounts) before generating again: a second run makes new codes and a second discount, it does not finish the first.
+
+Closing the window during a run stops it before the next image. If the run had reached the images, the discount and `codes.csv` are complete; if it had not, check the discount in the Shopify admin.
+
 Two Shopify pitfalls from the old app:
 
 - **`DiscountCodeBasicInput` has no `codes` array.** The first code goes in the singular `code` field when the discount is created; every other code is added afterwards with `discountRedeemCodeBulkAdd`, in batches of at most 250.
-- **`discountRedeemCodeBulkAdd` has no `DiscountCodeBulkCreation` type.** An inline fragment `... on DiscountCodeBulkCreation` fails, so do not poll the bulk creation with a `node(id)` query. The codes are queued and Shopify creates them in the background.
+- **`discountRedeemCodeBulkAdd` only queues the codes.** Shopify creates them in the background and the mutation returns a `bulkCreation { id }`. An inline fragment `... on DiscountCodeBulkCreation` on a `node(id)` query fails (there is no such type); ask the root query `discountRedeemCodeBulkCreation(id:)` for `done`, `importedCount` and `failedCount` instead. The old app did not look, so a refused code went unnoticed.

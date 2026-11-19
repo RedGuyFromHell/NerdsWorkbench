@@ -239,3 +239,18 @@ See `src/tools/voucher/PreviewCanvas.tsx:118`.
 
 The checkboxes hide their real `<input>` with `position: absolute`. An absolute element belongs to the nearest positioned ancestor, and a scroll box (`overflow: auto`) that is not positioned is not one: the hidden inputs of checkboxes far down the scrolled settings column then belonged to the page, and the page became taller than the window although nothing visible overflowed. `position: relative` on the scroll box makes it their container, so it clips them. Found by comparing `document.documentElement.scrollHeight` with `innerHeight` in the browser check.
 See `src/tools/voucher/voucher.css:106`.
+
+## AbortSignal as a parameter: stopping a long job between two steps
+
+A long job cannot be killed from outside without leaving a half-written file, so it has to ask "should I stop?" at a point where stopping is clean. `AbortController` is the browser's standard pair for that: the owner keeps the controller and calls `abort()`, the job gets only its `signal` and reads `signal.aborted`. The generate run reads it between two images and nowhere else, so the Shopify part is never cut in the middle; the screen aborts when it unmounts (`src/tools/voucher/useGenerateRun.ts:36`).
+See `src/tools/voucher/core/generateRun.ts:156`.
+
+## A Shopify mutation that only queues: follow it with a bounded poll
+
+`discountRedeemCodeBulkAdd` answers at once with a `bulkCreation { id }` and does the work later, so a clean answer proves nothing. The run asks `discountRedeemCodeBulkCreation(id:)` for `done`, `importedCount` and `failedCount` after a short sleep, at most 120 times, and treats a batch that never finishes as a failure with the count seen so far. The sleep is a parameter, so the tests pass one that returns at once and 120 polls take a millisecond.
+See `src/tools/voucher/core/generateRun.ts:311`.
+
+## From a canvas to a file: toBlob, then raw bytes to Rust
+
+`canvas.toBlob(callback, mimeType, quality)` encodes the canvas as JPG or PNG and calls back with a `Blob` (or null when it cannot). `blob.arrayBuffer()` gives the bytes, and `write_file_bytes` takes them as the raw request body, so no base64 and no JSON array of numbers crosses to Rust. One canvas is made per run and drawn over for each code: memory stays flat for 100,000 vouchers, and each `await` hands the thread back so the window keeps painting.
+See `src/tools/voucher/voucherImages.ts:21`.

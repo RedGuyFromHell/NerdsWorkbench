@@ -1,9 +1,11 @@
 // The Voucher Generator screen: the template with the code preview on the left, the three numbered
 // settings sections on the right. It holds the settings, the template and the code area; the
-// pieces draw and edit them. The GENERATE! button is shown with its reason but does nothing yet.
+// pieces draw and edit them. GENERATE! starts one run (`useGenerateRun`); its failure lands in the
+// same Dialog as every other error here.
 //
-// Nothing on this screen is worth saving (the settings are not kept between runs), so it never
-// calls `setUnsavedWork` and the shell never asks about it. It listens for no keys either.
+// Nothing on this screen is worth saving (the settings are not kept between runs, and a run writes
+// each file as it goes), so it never calls `setUnsavedWork` and the shell never asks about it. It
+// listens for no keys either.
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { pickFolder, pickOpenFile } from "../../lib/files";
 import { errorText, SHOPIFY_SETTINGS_SECTION } from "../../lib/shopify/client";
@@ -14,7 +16,7 @@ import type { ToolContext } from "../types";
 import { generateCodes } from "./core/codeGen";
 import { checkCanGenerate } from "./core/generateGuard";
 import { formatPreviewStatus } from "./core/previewStatus";
-import type { Rect } from "./core/selection";
+import { toImagePixels, type Rect } from "./core/selection";
 import { isTemplateFileName, TEMPLATE_EXTENSIONS } from "./core/templateFile";
 import {
   defaultVoucherSettings,
@@ -28,6 +30,7 @@ import { SettingsPanel } from "./SettingsPanel";
 import { loadTemplateFromFile, loadTemplateFromPath, type VoucherTemplate } from "./template";
 import { useCollections } from "./useCollections";
 import { useFontFamilies } from "./useFontFamilies";
+import { useGenerateRun } from "./useGenerateRun";
 import "./voucher.css";
 
 function carriesFiles(event: DragEvent): boolean {
@@ -52,6 +55,8 @@ export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
   const connected = shopify.status?.connected === true;
   const collections = useCollections(connected, shopify.status?.store ?? "");
   const fontFamilies = useFontFamilies(setErrorMessage);
+  const generation = useGenerateRun(setErrorMessage);
+  const generating = generation.state.kind === "generating";
 
   const change = useCallback((patch: Partial<VoucherSettings>) => {
     setSettings((current) => ({ ...current, ...patch }));
@@ -93,6 +98,13 @@ export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
   }, [setStatus, selection, template, sample]);
 
   function showTemplate(next: VoucherTemplate) {
+    // WARNING: a run draws every image from the open template. Closing it mid-run would write
+    // vouchers with no background.
+    if (generating) {
+      next.image.close();
+      setErrorMessage("The voucher image cannot change while vouchers are being generated.");
+      return;
+    }
     templateRef.current?.image.close();
     templateRef.current = next;
     setTemplate(next);
@@ -162,6 +174,13 @@ export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
     pickedCollectionCount: settings.collectionIds.length,
   });
 
+  function startGenerate() {
+    if (!generate.canGenerate || template === null || selection === null) return;
+    const bounds = { x: 0, y: 0, width: template.width, height: template.height };
+    const area = toImagePixels(selection, bounds, template);
+    void generation.start(settings, { template, area, style });
+  }
+
   return (
     <div
       className={dropping ? "voucher voucher--dropping" : "voucher"}
@@ -189,6 +208,8 @@ export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
         collections={collections}
         onOpenSettings={() => openSettings(SHOPIFY_SETTINGS_SECTION)}
         generate={generate}
+        generation={generation.state}
+        onGenerate={startGenerate}
       />
       {errorMessage ? (
         <Dialog

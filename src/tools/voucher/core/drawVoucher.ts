@@ -1,6 +1,6 @@
 // Draws one code onto the template. The preview and the export call this same function, so what
-// the user sees is what the file holds. Canvas work, checked by eye and against the old app (the
-// layout maths it relies on is `layoutCode`, which is tested).
+// the user sees is what the file holds. Canvas work, checked by eye (the layout maths it relies
+// on is `layoutCode`, which is tested).
 import { layoutCode } from "./codeLayout";
 import type { Rect } from "./selection";
 
@@ -27,8 +27,7 @@ export interface VoucherDrawing {
   area: Rect | null;
 }
 
-// WHY: the old app drew its code bold and so does this one; a font with no bold face gets the
-// browser's synthetic bold, as it got Qt's.
+// WHY: the code is drawn bold; a font with no bold face gets the browser's synthetic bold.
 const FONT_WEIGHT = "bold";
 
 /** The CSS font shorthand for a family and size, with the family's quotes and backslashes removed. */
@@ -74,8 +73,8 @@ function drawCode(
     descent: metrics.fontBoundingBoxDescent,
   });
 
-  // WHY: the outline of the whole code goes down first and the fill on top, as the old app drew
-  // one outlined path and then one filled path: a glyph's outline never cuts into its neighbour.
+  // WHY: the outline of the whole code goes down first and the fill on top, as one outlined path
+  // and then one filled path: a glyph's outline never cuts into its neighbour.
   if (style.outlineThicknessPx > 0) {
     context.lineWidth = style.outlineThicknessPx * 2;
     context.lineJoin = "round";

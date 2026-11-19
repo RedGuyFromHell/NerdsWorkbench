@@ -78,8 +78,8 @@ export function buildDiscountInput(settings: DiscountSettings): DiscountCodeBasi
 }
 
 // WARNING: money. "Specific collections" with none picked throws. Falling through to all
-// products, as the old app did, would make a discount on the whole shop. The screen blocks it
-// first; this holds when something gets past the screen.
+// products would make a discount on the whole shop. The screen blocks it first; this holds when
+// something gets past the screen.
 function getDiscountedItems(
   settings: DiscountSettings,
 ): DiscountCodeBasicInput["customerGets"]["items"] {
@@ -95,8 +95,8 @@ function toCollectionGid(collectionId: string | number): string {
 
 /** The amount as Shopify wants it: two decimals, an exact half cent going to the even cent. */
 export function formatMinimumSubtotal(amount: number): string {
-  // WHY: Python's format rounds an exact tie to even (0.125 gives 0.12) and toFixed rounds it
-  // up (0.13). Only a multiple of an eighth can tie exactly, so only those are rounded by hand.
+  // WHY: an exact tie goes to the even cent (0.125 gives 0.12) while toFixed rounds it up (0.13).
+  // Only a multiple of an eighth can tie exactly, so only those are rounded by hand.
   const eighths = amount * 8;
   if (Number.isInteger(eighths) && eighths % 2 !== 0) {
     return (roundHalfToEven(amount * 100) / 100).toFixed(2);

@@ -1,16 +1,9 @@
 // Every collection of the store, for the "specific collections" picker: asks Shopify page by page
 // and merges the pages.
 import { z } from "zod";
-import { shopifyGraphql } from "../../../lib/shopify/client";
+import { shopifyGraphql, type GraphqlCall } from "../../../lib/shopify/client";
 import { mergeCollectionPages } from "./collections";
 import type { Collection } from "./collections";
-
-/** The Shopify call this needs; the tests pass a stand-in. */
-export type GraphqlCall = <T>(
-  query: string,
-  variables: Record<string, unknown>,
-  schema: z.ZodType<T>,
-) => Promise<T>;
 
 const COLLECTIONS_QUERY = `
   query Collections($cursor: String) {

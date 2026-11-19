@@ -3,13 +3,13 @@
 // them. In a plain browser (the Vite URL) the status says "not connected" and every other call
 // throws one clear error, so the screens can still be looked at.
 import { z } from "zod";
-import { isTauri } from "../platform";
+import { errorText } from "../errors";
+import { invokeCommand, isTauri } from "../platform";
 
 /** The id of the Settings window section that holds the connection. */
 export const SHOPIFY_SETTINGS_SECTION = "shopify";
 
 const DESKTOP_ONLY = "Shopify can only be connected in the desktop app.";
-const UNKNOWN_FAILURE = "Something went wrong.";
 
 const statusSchema = z.object({
   store: z.string(),
@@ -54,17 +54,10 @@ export function isGraphqlError(error: unknown): boolean {
   return errorText(error).startsWith(GRAPHQL_ERROR_PREFIX);
 }
 
-/** A Rust command rejects with a plain sentence; anything else gets a fixed one. */
-export function errorText(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return typeof error === "string" ? error : UNKNOWN_FAILURE;
-}
-
 async function callCommand(command: string, args?: Record<string, unknown>): Promise<unknown> {
   if (!isTauri()) throw new Error(DESKTOP_ONLY);
-  const { invoke } = await import("@tauri-apps/api/core");
   try {
-    return await invoke(command, args);
+    return await invokeCommand(command, args);
   } catch (error) {
     throw new Error(errorText(error), { cause: error });
   }
@@ -120,6 +113,13 @@ export async function disconnectShopify(): Promise<void> {
 // #endregion
 
 // #region GraphQL
+/** The shape of `shopifyGraphql`, so a caller can be given a stand-in. */
+export type GraphqlCall = <T>(
+  query: string,
+  variables: Record<string, unknown>,
+  schema: z.ZodType<T>,
+) => Promise<T>;
+
 /** One Admin API query or mutation. The schema turns Shopify's `data` into a typed value. */
 export async function shopifyGraphql<T>(
   query: string,

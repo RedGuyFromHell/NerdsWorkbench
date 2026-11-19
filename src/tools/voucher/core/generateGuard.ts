@@ -1,5 +1,5 @@
-// Why the GENERATE button is disabled. The first missing thing wins, in this order: the four the old
-// app checked, then the ones this app adds.
+// Why the GENERATE button is disabled. The first missing thing wins, in this order: the image, the
+// code area, the save path and the prefix, then the connection and the discount.
 
 export interface GenerateInputs {
   hasImage: boolean;
@@ -22,8 +22,8 @@ export function checkCanGenerate(inputs: GenerateInputs): GenerateCheck {
   if (inputs.savePath.trim() === "") return blocked("set a save path");
   if (inputs.prefix.trim() === "") return blocked("set a discount code prefix");
   if (!inputs.connected) return blocked("not connected to Shopify");
-  // WARNING: money. "Specific collections" with none picked was a discount on every product in
-  // the old app. `buildDiscountInput` refuses it too; the screen says why before a run starts.
+  // WARNING: money. "Specific collections" with none picked would be a discount on every product.
+  // `buildDiscountInput` refuses it too; the screen says why before a run starts.
   if (inputs.appliesTo === "collection" && inputs.pickedCollectionCount === 0) {
     return blocked("discount applies to collections but none is picked");
   }

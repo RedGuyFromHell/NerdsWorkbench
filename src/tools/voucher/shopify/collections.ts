@@ -6,9 +6,9 @@ export interface Collection {
 }
 
 export function mergeCollectionPages(pages: readonly (readonly Collection[])[]): Collection[] {
-  // WHY: titles are compared by lower-cased character code (Python's sorted with .lower()),
-  // not with localeCompare, so the list stays in the order the old app showed. The sort is
-  // stable: titles that differ only in case keep the order Shopify returned them in.
+  // WHY: titles are compared by lower-cased character code, not with localeCompare, so the order
+  // does not depend on the machine's locale. The sort is stable: titles that differ only in case
+  // keep the order Shopify returned them in.
   return pages.flat().sort((first, second) => compareTitles(first.title, second.title));
 }
 

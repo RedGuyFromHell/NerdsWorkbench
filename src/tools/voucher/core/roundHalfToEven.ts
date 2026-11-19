@@ -1,5 +1,5 @@
-// Python's `round()` for floats: an exact half goes to the even neighbour, so 2.5 gives 2.
-// JavaScript's Math.round sends every half up, which would move a pixel the old app did not.
+// Rounds an exact half to the even neighbour, so 2.5 gives 2 and 3.5 gives 4. JavaScript's
+// Math.round sends every half up, which would shift a pixel or a percentage by one.
 
 export function roundHalfToEven(value: number): number {
   const lower = Math.floor(value);

@@ -1,4 +1,4 @@
-// Which files the voucher template picker takes: the three types the old app listed.
+// Which files the voucher template picker takes: jpg, png and webp.
 
 /** Without the dot, as a dialog filter wants them. */
 export const TEMPLATE_EXTENSIONS = ["jpg", "jpeg", "png", "webp"];

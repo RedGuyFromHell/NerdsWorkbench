@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodePathHeader, fileNameOf, mimeTypeOf, safeFileName } from "./files";
+import { encodePathHeader, fileNameOf, mimeTypeOf, pathInFolder, safeFileName } from "./files";
 
 describe("encodePathHeader", () => {
   it("escapes spaces, backslashes, # and % as percent codes", () => {
@@ -17,6 +17,14 @@ describe("encodePathHeader", () => {
   it("is undone by decodeURIComponent, the decode the Rust side mirrors", () => {
     const path = "D:\\Proiecte mele\\ghiață #2 (100%) ț+ș.nerd";
     expect(decodeURIComponent(encodePathHeader(path))).toBe(path);
+  });
+});
+
+describe("pathInFolder", () => {
+  it("joins with the separator the folder path already uses", () => {
+    expect(pathInFolder("D:\\vouchers", "a.png")).toBe("D:\\vouchers\\a.png");
+    expect(pathInFolder("/home/me/out", "a.png")).toBe("/home/me/out/a.png");
+    expect(pathInFolder("D:\\vouchers\\", "a.png")).toBe("D:\\vouchers\\a.png");
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampedNumber, inRangeNumber, settledNumber } from "./numberInput";
+import { inRangeNumber, settledNumber } from "./numberInput";
 
 describe("inRangeNumber", () => {
   it("gives the number when the text is inside the range, ends included", () => {
@@ -72,18 +72,5 @@ describe("settledNumber", () => {
     expect(settledNumber("25", 10, PERCENTAGE)).toBe(25);
     expect(settledNumber("12,346", 10, PERCENTAGE)).toBe(12.35);
     expect(settledNumber("7.6", 3, { min: 1, max: 100, decimals: 0 })).toBe(8);
-  });
-});
-
-describe("clampedNumber", () => {
-  it("clamps a number outside the range to the nearest end", () => {
-    expect(clampedNumber("0", 0.2, 10)).toBe(0.2);
-    expect(clampedNumber("99", 0.2, 10)).toBe(10);
-    expect(clampedNumber("4.5", 0.2, 10)).toBe(4.5);
-  });
-
-  it("gives null for text that is not a number", () => {
-    expect(clampedNumber("", 0, 10)).toBeNull();
-    expect(clampedNumber("-", -5, 10)).toBeNull();
   });
 });

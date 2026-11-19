@@ -1,5 +1,5 @@
 // The status bar text of the Voucher screen: the code area's size as a percentage of the template,
-// and the sample code, as the old app's status bar showed them.
+// and the sample code.
 import { roundHalfToEven } from "./roundHalfToEven";
 import { toFractions, type Rect, type Size } from "./selection";
 
@@ -13,7 +13,7 @@ export function formatPreviewStatus(
   const parts: string[] = [];
   if (selection !== null && template !== null) {
     const fractions = toFractions(selection, { x: 0, y: 0, ...template });
-    // WHY: Python's round, as for the pixels: 12.5 % shows as 12, not 13.
+    // WHY: an exact half goes to the even number, as for the pixels: 12.5 % shows as 12, not 13.
     const width = roundHalfToEven(fractions.width * PERCENT);
     const height = roundHalfToEven(fractions.height * PERCENT);
     parts.push(`▭ ${width}% × ${height}%`);

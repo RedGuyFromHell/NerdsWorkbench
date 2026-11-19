@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
+import { errorText } from "../../lib/errors";
 import { listFontFamilies } from "../../lib/fonts";
-import { errorText } from "../../lib/shopify/client";
 
 /** The installed font families: empty until they are read. A failure goes to `onError`, which must be stable. */
 export function useFontFamilies(onError: (message: string) => void): string[] {

@@ -48,8 +48,8 @@ export function getCodesFileName(prefix: string, startedAt: Date): string {
   return safeFileName(`codes-${prefix.replace(/-+$/, "")}-${stamp}.csv`);
 }
 
-// WHY: the same rule as Python's Path.suffix: the part of the last name from its final dot, and
-// empty for ".jpg" (a hidden file) or "name." (a trailing dot).
+// WHY: the part of the last name from its final dot, and empty for ".jpg" (a hidden file) or
+// "name." (a trailing dot).
 function getExtension(path: string): string {
   const name = path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
   const dot = name.lastIndexOf(".");

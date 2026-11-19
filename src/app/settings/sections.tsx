@@ -1,4 +1,4 @@
-// The Settings window is a list of sections. A later slice adds one by writing a component and
+// The Settings window is a list of sections. A section is added by writing a component and
 // adding one line to SETTINGS_SECTIONS; the window itself does not change.
 import { useEffect, useState } from "react";
 import type { ComponentType } from "react";

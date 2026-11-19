@@ -21,6 +21,8 @@ export interface Size {
 
 export type Corner = "nw" | "ne" | "sw" | "se";
 
+export const CORNERS: readonly Corner[] = ["nw", "ne", "sw", "se"];
+
 /** Smallest width and height a selection may have, in displayed pixels. */
 export const MIN_SELECTION_SIZE = 8;
 
@@ -84,9 +86,9 @@ export function resizeSelection(
     height = Math.max(MIN_SELECTION_SIZE, pointer.y - original.y);
   }
 
-  // WHY: the size is worked out before the position is clamped, as the old app did. A drag past
-  // the left or top edge pins the near edge to the image but leaves the size as if it had gone
-  // outside, so the opposite edge moves out. Kept so the new tool behaves the same.
+  // WHY: the size is worked out before the position is clamped. A drag past the left or top edge
+  // pins the near edge to the image but leaves the size as if it had gone outside, so the
+  // opposite edge moves out.
   x = Math.max(bounds.x, x);
   y = Math.max(bounds.y, y);
   width = Math.min(width, bounds.x + bounds.width - x);
@@ -110,7 +112,7 @@ export function toFractions(selection: Rect, displayed: Rect): Rect {
 
 export function toImagePixels(selection: Rect, displayed: Rect, image: Size): Rect {
   const fractions = toFractions(selection, displayed);
-  // WHY: Python's round, not Math.round: an exact half goes to the even pixel.
+  // WHY: an exact half goes to the even pixel, not up as Math.round would send it.
   return {
     x: roundHalfToEven(fractions.x * image.width),
     y: roundHalfToEven(fractions.y * image.height),

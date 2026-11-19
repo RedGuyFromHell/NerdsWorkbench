@@ -52,9 +52,3 @@ export function inRangeNumber(
 export function settledNumber(text: string, lastValid: number, limits: NumberLimits): number {
   return inRangeNumber(text, limits.min, limits.max, limits.decimals) ?? lastValid;
 }
-
-/** Whatever was typed, clamped to the range. */
-export function clampedNumber(text: string, min: number, max: number): number | null {
-  const parsed = parseTyped(text);
-  return parsed === null ? null : clamp(parsed, min, max);
-}

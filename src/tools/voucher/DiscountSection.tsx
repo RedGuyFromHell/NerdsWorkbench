@@ -1,5 +1,5 @@
 // Section 02 of the settings panel: what the discount is. Needs the Shopify connection for the
-// collection list and, later, for the discount itself, so it carries the "Not connected" notice.
+// collection list and for the discount itself, so it carries the "Not connected" notice.
 import { Button } from "../../ui/Button";
 import { Checkbox } from "../../ui/Checkbox";
 import { DateField } from "../../ui/DateField";
@@ -105,6 +105,68 @@ function CollectionPicker({
   );
 }
 
+type SettingsEditorProps = Pick<DiscountSectionProps, "settings" | "onChange">;
+
+function AmountAndScope({ settings, onChange }: SettingsEditorProps) {
+  return (
+    <div className="voucher-pair">
+      <NumberField
+        label="Percentage"
+        decimals={PERCENTAGE_DECIMALS}
+        hint="%"
+        value={settings.percentage}
+        onChange={(percentage) => onChange({ percentage })}
+        {...PERCENTAGE_RANGE}
+      />
+      <Select
+        label="Applies To"
+        value={settings.appliesTo}
+        options={APPLIES_TO}
+        onChange={(value) => onChange({ appliesTo: value === "collection" ? "collection" : "all" })}
+      />
+    </div>
+  );
+}
+
+function OrderLimits({ settings, onChange }: SettingsEditorProps) {
+  return (
+    <div className="voucher-pair">
+      <NumberField
+        label="Min. Order"
+        hint="RON, 0 = none"
+        value={settings.minimumSubtotal}
+        onChange={(minimumSubtotal) => onChange({ minimumSubtotal })}
+        {...MINIMUM_SUBTOTAL_RANGE}
+      />
+      <NumberField
+        label="Usage Limit"
+        integer
+        hint="0 = unlimited"
+        value={settings.usageLimit}
+        onChange={(usageLimit) => onChange({ usageLimit })}
+        {...USAGE_LIMIT_RANGE}
+      />
+    </div>
+  );
+}
+
+function ValidityDates({ settings, onChange }: SettingsEditorProps) {
+  return (
+    <div className="voucher-pair">
+      <DateField
+        label="Start Date"
+        value={settings.startDate}
+        onChange={(startDate) => onChange({ startDate })}
+      />
+      <DateField
+        label="End Date"
+        value={settings.endDate}
+        onChange={(endDate) => onChange({ endDate })}
+      />
+    </div>
+  );
+}
+
 export function DiscountSection({
   settings,
   onChange,
@@ -116,7 +178,7 @@ export function DiscountSection({
     <section className="voucher-section">
       <SectionHeader number={2} title="Discount Settings" />
       <ConnectionNotice connection={connection} onOpenSettings={onOpenSettings} />
-      {/* The old app had one voucher type; the box stays so a second one has a place. */}
+      {/* There is one voucher type; the box stays so a second one has a place. */}
       <Select
         label="Voucher Type"
         value="percentage"
@@ -124,24 +186,7 @@ export function DiscountSection({
         onChange={() => {}}
         disabled
       />
-      <div className="voucher-pair">
-        <NumberField
-          label="Percentage"
-          decimals={PERCENTAGE_DECIMALS}
-          hint="%"
-          value={settings.percentage}
-          onChange={(percentage) => onChange({ percentage })}
-          {...PERCENTAGE_RANGE}
-        />
-        <Select
-          label="Applies To"
-          value={settings.appliesTo}
-          options={APPLIES_TO}
-          onChange={(value) =>
-            onChange({ appliesTo: value === "collection" ? "collection" : "all" })
-          }
-        />
-      </div>
+      <AmountAndScope settings={settings} onChange={onChange} />
       {settings.appliesTo === "collection" ? (
         <CollectionPicker
           collections={collections}
@@ -149,40 +194,13 @@ export function DiscountSection({
           onChange={(collectionIds) => onChange({ collectionIds })}
         />
       ) : null}
-      <div className="voucher-pair">
-        <NumberField
-          label="Min. Order"
-          hint="RON, 0 = none"
-          value={settings.minimumSubtotal}
-          onChange={(minimumSubtotal) => onChange({ minimumSubtotal })}
-          {...MINIMUM_SUBTOTAL_RANGE}
-        />
-        <NumberField
-          label="Usage Limit"
-          integer
-          hint="0 = unlimited"
-          value={settings.usageLimit}
-          onChange={(usageLimit) => onChange({ usageLimit })}
-          {...USAGE_LIMIT_RANGE}
-        />
-      </div>
+      <OrderLimits settings={settings} onChange={onChange} />
       <Checkbox
         label="Once per customer"
         checked={settings.oncePerCustomer}
         onChange={(oncePerCustomer) => onChange({ oncePerCustomer })}
       />
-      <div className="voucher-pair">
-        <DateField
-          label="Start Date"
-          value={settings.startDate}
-          onChange={(startDate) => onChange({ startDate })}
-        />
-        <DateField
-          label="End Date"
-          value={settings.endDate}
-          onChange={(endDate) => onChange({ endDate })}
-        />
-      </div>
+      <ValidityDates settings={settings} onChange={onChange} />
     </section>
   );
 }

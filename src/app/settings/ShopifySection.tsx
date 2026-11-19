@@ -2,7 +2,8 @@
 // secret, Connect and Disconnect. The secret is typed here once and sent to Rust; it never comes
 // back, so the field is always empty when the window opens.
 import { useEffect, useRef, useState } from "react";
-import { connectShopify, disconnectShopify, errorText } from "../../lib/shopify/client";
+import { errorText } from "../../lib/errors";
+import { connectShopify, disconnectShopify } from "../../lib/shopify/client";
 import type { ShopifyStatus } from "../../lib/shopify/client";
 import { useShopifyStatus } from "../../lib/shopify/useShopifyStatus";
 import { Button } from "../../ui/Button";
@@ -28,19 +29,11 @@ export function ShopifySection() {
   return <ShopifyForm status={status} />;
 }
 
-function ShopifyForm({ status }: { status: ShopifyStatus }) {
-  const [store, setStore] = useState(status.store);
-  const [clientId, setClientId] = useState(status.clientId);
-  const [clientSecret, setClientSecret] = useState("");
+/** Runs a connect or a disconnect and holds what the form shows about it: busy, done, or failed. */
+function useConnectionAttempt(onDone: () => void) {
   const [activity, setActivity] = useState<Activity | null>(null);
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState("");
-  const feedback = useRef<HTMLDivElement>(null);
-
-  // WHY: the outcome lands under the buttons, which can be below the fold of the Settings window.
-  useEffect(() => {
-    if (message !== "" || failure !== "") feedback.current?.scrollIntoView({ block: "nearest" });
-  }, [message, failure]);
 
   const run = (started: Activity, work: () => Promise<void>, doneMessage: string) => {
     setActivity(started);
@@ -49,13 +42,22 @@ function ShopifyForm({ status }: { status: ShopifyStatus }) {
     void work()
       .then(
         () => {
-          setClientSecret("");
+          onDone();
           setMessage(doneMessage);
         },
         (error: unknown) => setFailure(errorText(error)),
       )
       .finally(() => setActivity(null));
   };
+
+  return { activity, message, failure, run };
+}
+
+function ShopifyForm({ status }: { status: ShopifyStatus }) {
+  const [store, setStore] = useState(status.store);
+  const [clientId, setClientId] = useState(status.clientId);
+  const [clientSecret, setClientSecret] = useState("");
+  const { activity, message, failure, run } = useConnectionAttempt(() => setClientSecret(""));
 
   const connect = () =>
     run("connecting", () => connectShopify({ store, clientId, clientSecret }), CONNECTED_MESSAGE);
@@ -70,17 +72,7 @@ function ShopifyForm({ status }: { status: ShopifyStatus }) {
       <p className="settings__state" data-connected={status.connected}>
         {status.connected ? `Connected to ${status.store}` : "Not connected"}
       </p>
-      {status.importedOldConfig ? (
-        <p className="settings__note">
-          The Shopify settings of the old Workbench were imported. Its token and client secret moved
-          to Windows Credential Manager, and the old config file no longer holds them.
-        </p>
-      ) : null}
-      {status.importError !== null ? (
-        <p className="settings__error" role="alert">
-          The old Workbench settings were not imported: {status.importError}
-        </p>
-      ) : null}
+      <ImportNotes status={status} />
       <Field
         label="Store"
         value={store}
@@ -114,15 +106,46 @@ function ShopifyForm({ status }: { status: ShopifyStatus }) {
           Disconnect
         </Button>
       </div>
-      <div ref={feedback}>
-        <p role="status">{message}</p>
-        {failure !== "" ? (
-          <p className="settings__error" role="alert">
-            {failure}
-          </p>
-        ) : null}
-      </div>
+      <AttemptFeedback message={message} failure={failure} />
     </>
+  );
+}
+
+function ImportNotes({ status }: { status: ShopifyStatus }) {
+  return (
+    <>
+      {status.importedOldConfig ? (
+        <p className="settings__note">
+          The Shopify settings of the old Workbench were imported. Its token and client secret moved
+          to Windows Credential Manager, and the old config file no longer holds them.
+        </p>
+      ) : null}
+      {status.importError !== null ? (
+        <p className="settings__error" role="alert">
+          The old Workbench settings were not imported: {status.importError}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function AttemptFeedback({ message, failure }: { message: string; failure: string }) {
+  const feedback = useRef<HTMLDivElement>(null);
+
+  // WHY: the outcome lands under the buttons, which can be below the fold of the Settings window.
+  useEffect(() => {
+    if (message !== "" || failure !== "") feedback.current?.scrollIntoView({ block: "nearest" });
+  }, [message, failure]);
+
+  return (
+    <div ref={feedback}>
+      <p role="status">{message}</p>
+      {failure !== "" ? (
+        <p className="settings__error" role="alert">
+          {failure}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GraphqlCall } from "../shopify/listCollections";
+import type { GraphqlCall } from "../../../lib/shopify/client";
 import type { RandomIndex } from "./codeGen";
 import {
   formatGenerateProgress,

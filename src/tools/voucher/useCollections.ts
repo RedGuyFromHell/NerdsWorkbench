@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { errorText } from "../../lib/shopify/client";
+import { errorText } from "../../lib/errors";
 import type { Collection } from "./shopify/collections";
 import { listCollections } from "./shopify/listCollections";
 

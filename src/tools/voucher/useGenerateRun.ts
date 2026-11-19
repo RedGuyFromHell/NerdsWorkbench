@@ -2,7 +2,8 @@
 // the real file writer and the canvas renderer to `runGenerate`.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { writeFileBytes } from "../../lib/files";
-import { errorText, shopifyGraphql } from "../../lib/shopify/client";
+import { errorText } from "../../lib/errors";
+import { shopifyGraphql } from "../../lib/shopify/client";
 import { runGenerate, type GenerateOutcome, type GenerateProgress } from "./core/generateRun";
 import { getOutputFile } from "./core/outputFile";
 import type { VoucherSettings } from "./core/voucherSettings";
@@ -13,7 +14,7 @@ export type GenerateState =
   | { kind: "generating"; progress: GenerateProgress }
   | { kind: "done"; outcome: GenerateOutcome };
 
-// How long the button says DONE! before it offers the next run, as in the old app.
+// How long the button says DONE! before it offers the next run.
 const DONE_SHOWN_MS = 2200;
 const IDLE: GenerateState = { kind: "idle" };
 

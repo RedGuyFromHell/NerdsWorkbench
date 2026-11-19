@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { errorText, getShopifyStatus, subscribeToShopifyStatus } from "./client";
+import { errorText } from "../errors";
+import { getShopifyStatus, subscribeToShopifyStatus } from "./client";
 import type { ShopifyStatus } from "./client";
 
 export interface ShopifyStatusState {

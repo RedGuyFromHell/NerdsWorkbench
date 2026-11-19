@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { GraphqlCall } from "./listCollections";
+import type { GraphqlCall } from "../../../lib/shopify/client";
 import { listCollections } from "./listCollections";
 
 /** A stand-in for the Shopify call: answers each request with the next raw page, parsed as the client does. */

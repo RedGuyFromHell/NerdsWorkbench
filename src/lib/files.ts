@@ -1,7 +1,7 @@
 // Reading and writing files the user picked, through the two Rust commands in src-tauri/src/files.rs
 // (raw bytes both ways) and the native dialogs. In a plain browser (the Vite URL) there is no disk
 // access: every call throws one clear error, so the screen can still be built and looked at.
-import { isTauri } from "./platform";
+import { invokeCommand, isTauri } from "./platform";
 
 export interface FileFilter {
   name: string;
@@ -40,6 +40,13 @@ export function fileNameOf(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
+/** The file's path inside the folder, joined with the separator the folder's own path uses. */
+export function pathInFolder(folder: string, fileName: string): string {
+  if (/[\\/]$/.test(folder)) return `${folder}${fileName}`;
+  const separator = folder.includes("\\") ? "\\" : "/";
+  return `${folder}${separator}${fileName}`;
+}
+
 /** A name Windows accepts for a file: its forbidden characters become "-", edge dots and spaces go. */
 export function safeFileName(name: string): string {
   const cleaned = name
@@ -65,15 +72,15 @@ function requireDesktop(): void {
 /** The whole file as bytes. */
 export async function readFileBytes(path: string): Promise<Uint8Array> {
   requireDesktop();
-  const { invoke } = await import("@tauri-apps/api/core");
-  return new Uint8Array(await invoke<ArrayBuffer>("read_file_bytes", { path }));
+  return new Uint8Array(await invokeCommand<ArrayBuffer>("read_file_bytes", { path }));
 }
 
 /** Writes the bytes to the path, replacing what is there. The bytes go as the raw request body. */
 export async function writeFileBytes(path: string, bytes: Uint8Array): Promise<void> {
   requireDesktop();
-  const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("write_file_bytes", bytes, { headers: { [PATH_HEADER]: encodePathHeader(path) } });
+  await invokeCommand("write_file_bytes", bytes, {
+    headers: { [PATH_HEADER]: encodePathHeader(path) },
+  });
 }
 // #endregion
 

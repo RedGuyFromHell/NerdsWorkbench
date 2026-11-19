@@ -1,5 +1,5 @@
 // What the Voucher screen lets the user set, the values it starts with, and the small decisions on
-// them. The old app kept none of this between runs, and neither does this one.
+// them. None of it is kept between runs.
 import type { CodeStyle } from "./drawVoucher";
 
 export interface VoucherSettings {
@@ -80,7 +80,7 @@ export function formatLocalDate(date: Date): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/** Codes are upper case and the prefix is at most 20 characters, as in the old app. */
+/** Codes are upper case and the prefix is at most 20 characters. */
 export function normalisePrefix(text: string): string {
   return text.toUpperCase().slice(0, MAX_PREFIX_LENGTH);
 }

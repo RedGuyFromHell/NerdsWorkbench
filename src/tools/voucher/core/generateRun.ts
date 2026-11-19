@@ -3,15 +3,15 @@
 // Everything outside the process (Shopify, the disk, the canvas, the clock) comes in as a
 // parameter, so the tests run the real order against stand-ins.
 import { z } from "zod";
-import { errorText, isGraphqlError } from "../../../lib/shopify/client";
-import { safeFileName } from "../../../lib/files";
+import { errorText } from "../../../lib/errors";
+import { pathInFolder, safeFileName } from "../../../lib/files";
+import { isGraphqlError, type GraphqlCall } from "../../../lib/shopify/client";
 import { planCodeBatches } from "../shopify/codeBatches";
 import {
   buildDiscountInput,
   buildDiscountTitle,
   type DiscountCodeBasicInput,
 } from "../shopify/discountInput";
-import type { GraphqlCall } from "../shopify/listCollections";
 import { generateCodes, type RandomIndex } from "./codeGen";
 import { getCodesFileName, getOutputFileName, type OutputFile } from "./outputFile";
 import type { VoucherSettings } from "./voucherSettings";
@@ -281,8 +281,8 @@ function planDiscountInput(
     minimumSubtotal: settings.minimumSubtotal,
     usageLimit: settings.usageLimit,
     oncePerCustomer: settings.oncePerCustomer,
-    // WHY: the dates go as whole UTC days, as the old app sent them, so a voucher made here
-    // starts and ends at the same moments as one made there.
+    // WHY: the dates go as whole UTC days, so a voucher starts and ends at the same moments
+    // whatever the time zone of the machine.
     startsAt: `${settings.startDate}${DAY_START_UTC}`,
     endsAt: `${settings.endDate}${DAY_END_UTC}`,
   });
@@ -376,13 +376,6 @@ export function formatCodesCsv(codes: readonly string[]): string {
     /[",\r\n]/.test(code) ? `"${code.replaceAll('"', '""')}"` : code,
   );
   return `${[CODES_CSV_HEADER, ...lines].join("\n")}\n`;
-}
-
-/** The file's path inside the folder, joined with the separator the folder's own path uses. */
-function pathInFolder(folder: string, fileName: string): string {
-  if (/[\\/]$/.test(folder)) return `${folder}${fileName}`;
-  const separator = folder.includes("\\") ? "\\" : "/";
-  return `${folder}${separator}${fileName}`;
 }
 
 function asSentence(text: string): string {

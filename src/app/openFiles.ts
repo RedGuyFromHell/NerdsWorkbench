@@ -4,7 +4,7 @@
 // in routeOpenFile.ts, where it has tests.
 import { useEffect, useRef } from "react";
 import { fileNameOf, PROJECT_EXTENSION, readFileBytes } from "../lib/files";
-import { isTauri } from "../lib/platform";
+import { invokeCommand, isTauri } from "../lib/platform";
 import type { OpenRequest, ToolId } from "../tools/types";
 import { routeOpenFile, toolFieldOf } from "./routeOpenFile";
 
@@ -47,8 +47,7 @@ export function useOpenFiles(handlers: OpenFileHandlers): void {
     let draining: Promise<void> = Promise.resolve();
 
     const drain = async () => {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const paths = await invoke<string[]>("take_pending_open_files");
+      const paths = await invokeCommand<string[]>("take_pending_open_files");
       for (const path of paths) await handlePath(path, handlersRef.current);
     };
     const queueDrain = () => {

@@ -1,7 +1,7 @@
 // The tool registry's shapes. Adding a tool is a folder plus one line in registry.ts.
 import type { ComponentType, LazyExoticComponent } from "react";
 
-export type ToolId = "disc-studio" | "voucher";
+export type ToolId = "disc-studio" | "voucher" | "payout";
 
 /** A colour token name from styles/tokens.css, never a raw hex. */
 export type ToolColour = "pink" | "blue" | "yellow" | "green";

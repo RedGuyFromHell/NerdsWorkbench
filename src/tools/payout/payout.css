@@ -1,0 +1,633 @@
+/* Styles of the payout tool. Colours come from styles/tokens.css only. */
+
+/* ---------- Settings › Payout ---------- */
+
+/* WHY: the Settings dialog is 480px wide and does not scroll, which fits its short sections. The
+   payout tables need room, and the section is taller than a small window, so a dialog that holds
+   it grows and scrolls inside its own content. */
+.dialog:has(.payout-settings) {
+  width: min(960px, calc(100vw - 48px));
+}
+
+.dialog:has(.payout-settings) > .retro-window {
+  max-height: calc(100vh - 48px);
+}
+
+.dialog:has(.payout-settings) .dialog__content {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.payout-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.payout-settings__part {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.payout-settings__heading {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.payout-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+}
+
+.payout-settings__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.payout-settings__hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.payout-settings__problem {
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--danger);
+  border: var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.payout-settings__issues {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+}
+
+/* ---------- Tables of settings ---------- */
+
+.payout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.payout-table th {
+  padding: 6px;
+  border-bottom: var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.payout-table td {
+  padding: 6px;
+  border-bottom: 1px solid var(--muted-bg);
+  vertical-align: middle;
+}
+
+.payout-table__name {
+  min-width: 140px;
+}
+
+.payout-table__money {
+  min-width: 90px;
+}
+
+.payout-table__defaults {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+/* Text for screen readers, not drawn. */
+.payout-table__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* ---------- The month screen ---------- */
+
+.payout {
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 100%;
+  background: var(--paper);
+}
+
+.payout-muted {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.payout-num {
+  font-family: var(--font-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Text for screen readers, not drawn. */
+.payout-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* ---------- Months list ---------- */
+
+.payout-months {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 220px;
+  min-width: 180px;
+  padding: 16px 12px;
+  background: var(--muted-bg);
+  border-right: var(--border);
+}
+
+.payout-months__heading {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.payout-months__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payout-months__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-small);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.payout-months__item[aria-current="true"] {
+  background: var(--title-green);
+}
+
+.payout-months__item:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.payout-months__note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+/* ---------- Main part ---------- */
+
+.payout-main {
+  display: flex;
+  container-type: inline-size;
+  flex: 999 1 560px;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 18px 20px;
+}
+
+.payout-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.payout-header__title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.payout-header__spacer {
+  flex: 1;
+}
+
+.payout-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 520px;
+  margin: 0;
+  padding: 16px;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.payout-empty__title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.payout-notice {
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--danger) 35%, var(--field));
+  border: var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.payout-notice ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* The totals sit under the lines, as a row of cards. A wide window puts them beside the lines (rules at the end of this file). */
+.payout-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- Lines ---------- */
+
+/* WHY: at a narrow window the table scrolls sideways inside its own box, never the whole window. */
+.payout-lines {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.payout-lines:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.payout-lines__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.payout-lines__table thead th {
+  padding: 8px;
+  background: var(--paper);
+  border-bottom: var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.payout-lines__table thead th.payout-num {
+  text-align: right;
+}
+
+.payout-lines__table td,
+.payout-lines__table tbody th[scope="row"] {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--muted-bg);
+  font-weight: 400;
+  text-align: left;
+  vertical-align: top;
+}
+
+.payout-lines__table td.payout-num {
+  text-align: right;
+}
+
+.payout-lines__order th {
+  padding: 10px 8px 6px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--muted-bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+}
+
+/* WHY: a flex row on the cell itself would stop it spanning every column, so the row is inside. */
+.payout-lines__order-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+
+.payout-lines__row--blocked {
+  background: color-mix(in srgb, var(--danger) 25%, var(--field));
+}
+
+.payout-lines__product {
+  min-width: 170px;
+}
+
+/* The tags of a cell sit under what the cell says, not beside it: the cells are narrow. */
+.payout-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 110px;
+}
+
+.payout-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.payout-stack > .payout-tags {
+  margin-top: 0;
+}
+
+/* The menu of a person column is as wide as the names need, not the cell. */
+.payout-stack .field {
+  align-self: stretch;
+}
+
+.payout-stack .input--select {
+  height: 32px;
+  font-size: 13px;
+}
+
+.payout-owed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 130px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payout-owed li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+/* ---------- The fold-out of a line ---------- */
+
+.payout-lines__steps td {
+  padding: 0 8px 8px 24px;
+  border-bottom: 1px solid var(--muted-bg);
+}
+
+.payout-lines__steps summary {
+  width: fit-content;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.payout-lines__steps summary:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.payout-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 420px;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  background: var(--field);
+  border-left: 3px solid var(--ok);
+  font-size: 12px;
+}
+
+.payout-steps__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.payout-steps__row dt,
+.payout-steps__row dd {
+  margin: 0;
+}
+
+/* ---------- Totals ---------- */
+
+.payout-totals__note {
+  flex: 1 1 100%;
+}
+
+.payout-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.payout-totals__card {
+  flex: 1 1 240px;
+  max-width: 340px;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.payout-totals__heading {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--paper);
+  border-bottom: var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.payout-totals__heading--person {
+  background: var(--title-green);
+}
+
+.payout-totals__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 12px;
+  font-size: 13px;
+}
+
+.payout-totals__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.payout-totals__row dt {
+  margin: 0;
+}
+
+.payout-totals__row dd {
+  margin: 0;
+}
+
+.payout-totals__row--strong {
+  font-weight: 700;
+}
+
+.payout-totals__row--strong:not(:first-child) {
+  padding-top: 6px;
+  border-top: var(--border);
+}
+
+/* ---------- Paid marks (a closed month) ---------- */
+
+.payout-paid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 12px;
+  font-size: 13px;
+}
+
+.payout-paid__label {
+  font-weight: 600;
+}
+
+.payout-paid__text {
+  flex: 1;
+}
+
+.payout-paid__date {
+  flex: 1 1 130px;
+  width: auto;
+}
+
+/* ---------- The statement buttons (a closed month) ---------- */
+
+.payout-statement {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px 12px;
+  font-size: 13px;
+}
+
+.payout-statement__label {
+  flex: 1;
+  font-weight: 600;
+}
+
+/* ---------- Closing, and the corrections box ---------- */
+
+.payout-locked {
+  margin: 0;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--ok) 25%, var(--field));
+  border: var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.payout-dialog-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.payout-corrections {
+  background: color-mix(in srgb, var(--title-yellow) 30%, var(--field));
+}
+
+.payout-corrections__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.payout-corrections__item {
+  padding: 12px;
+  font-size: 13px;
+}
+
+.payout-corrections__item + .payout-corrections__item {
+  border-top: var(--border);
+}
+
+.payout-corrections__item p {
+  margin: 0;
+}
+
+.payout-corrections__item .payout-totals__rows {
+  padding: 6px 0 0;
+}
+
+/* ---------- A wide window ---------- */
+
+@container (min-width: 1240px) {
+  .payout-body {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .payout-totals {
+    flex: 0 0 300px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .payout-totals__card {
+    flex: none;
+    max-width: none;
+  }
+}

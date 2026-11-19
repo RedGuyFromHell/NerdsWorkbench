@@ -15,10 +15,11 @@ function fakeTool(id: ToolId, fileTypes: readonly FileType[]): ToolDefinition {
 }
 
 describe("TOOLS", () => {
-  it("lists Disc Studio (pink) then the Voucher Generator (blue)", () => {
+  it("lists Disc Studio (pink), the Voucher Generator (blue) then Payout (green)", () => {
     expect(TOOLS.map((tool) => [tool.id, tool.colour])).toEqual([
       ["disc-studio", "pink"],
       ["voucher", "blue"],
+      ["payout", "green"],
     ]);
   });
 

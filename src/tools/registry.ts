@@ -1,9 +1,10 @@
 // The list of tools the home grid shows, and the lookups that route a file or an id to a tool.
 import { discStudio } from "./disc-studio";
+import { payout } from "./payout";
 import type { ToolDefinition, ToolId } from "./types";
 import { voucher } from "./voucher";
 
-export const TOOLS: readonly ToolDefinition[] = [discStudio, voucher];
+export const TOOLS: readonly ToolDefinition[] = [discStudio, voucher, payout];
 
 export function getTool(id: ToolId, tools: readonly ToolDefinition[] = TOOLS): ToolDefinition {
   const tool = tools.find((candidate) => candidate.id === id);

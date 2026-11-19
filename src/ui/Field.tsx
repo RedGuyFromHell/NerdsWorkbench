@@ -5,14 +5,19 @@ interface FieldFrameProps {
   label: string;
   hint?: string;
   htmlFor: string;
+  /** Keep the label for screen readers only: a table cell whose column header already says it. */
+  hideLabel?: boolean;
   children: ReactNode;
 }
 
 /** The label row above a control. Shared by every field component. */
-export function FieldFrame({ label, hint, htmlFor, children }: FieldFrameProps) {
+export function FieldFrame({ label, hint, htmlFor, hideLabel, children }: FieldFrameProps) {
   return (
     <div className="field">
-      <label className="field__label" htmlFor={htmlFor}>
+      <label
+        className={hideLabel ? "field__label field__label--hidden" : "field__label"}
+        htmlFor={htmlFor}
+      >
         {label}
         {hint ? <span className="field__hint">{hint}</span> : null}
       </label>

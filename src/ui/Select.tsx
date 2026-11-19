@@ -12,13 +12,23 @@ interface SelectProps {
   options: readonly SelectOption[];
   onChange(value: string): void;
   hint?: string;
+  /** The label is read by screen readers but not drawn (see FieldFrame). */
+  hideLabel?: boolean;
   disabled?: boolean;
 }
 
-export function Select({ label, value, options, onChange, hint, disabled }: SelectProps) {
+export function Select({
+  label,
+  value,
+  options,
+  onChange,
+  hint,
+  hideLabel,
+  disabled,
+}: SelectProps) {
   const id = useId();
   return (
-    <FieldFrame label={label} hint={hint} htmlFor={id}>
+    <FieldFrame label={label} hint={hint} htmlFor={id} hideLabel={hideLabel}>
       <select
         id={id}
         className="input input--select"

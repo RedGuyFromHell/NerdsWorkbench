@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ComponentType } from "react";
 import { appVersionLabel } from "../../lib/platform";
+import { payoutSection } from "../../tools/payout/settings/payoutSection";
 import { Button } from "../../ui/Button";
 import { checkResultMessage } from "../update/updateCheck";
 import type { UpdateCheckResult } from "../update/updateCheck";
@@ -67,4 +68,5 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   { id: "about", title: "About", component: AboutSection },
   { id: "updates", title: "Updates", component: UpdatesSection },
   { id: "shopify", title: "Shopify connection", component: ShopifySection },
+  payoutSection,
 ];

@@ -209,6 +209,14 @@
   text-transform: uppercase;
 }
 
+.field__label--hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
 .field__hint {
   color: var(--muted);
   font-weight: 400;
@@ -469,4 +477,31 @@
   justify-content: flex-end;
   gap: 14px;
   padding: 0 18px 18px;
+}
+
+/* ---------- Tag ---------- */
+
+.tag {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--field);
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.tag--warn {
+  background: var(--title-yellow);
+}
+
+.tag--good {
+  background: color-mix(in srgb, var(--ok) 25%, var(--field));
+}
+
+.tag--danger {
+  background: color-mix(in srgb, var(--danger) 35%, var(--field));
 }

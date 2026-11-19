@@ -1,3 +1,4 @@
+mod app_data;
 mod files;
 mod open_files;
 
@@ -30,7 +31,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             files::read_file_bytes,
             files::write_file_bytes,
-            open_files::take_pending_open_files
+            open_files::take_pending_open_files,
+            app_data::read_app_text,
+            app_data::write_app_text,
+            app_data::list_app_files
         ])
         .setup(|app| {
             // WHY: a double-clicked file starts the app with its path in our own arguments; the page

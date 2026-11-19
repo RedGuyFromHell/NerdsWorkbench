@@ -172,6 +172,20 @@ _Disconnect_ in the Settings window removes both entries from Windows Credential
 
 Makes a batch of unique discount codes, creates the matching discount in Shopify, and renders one voucher image per code. The decisions (code generation, text layout, the code-area selection, the discount input, the code batches) are plain functions in `src/tools/voucher/core/` and `src/tools/voucher/shopify/`, each with a test beside it.
 
+### Using the screen
+
+The preview is on the left, the settings on the right. GENERATE! is shown but does not generate yet; it says what is still missing under the button.
+
+1. **Choose Voucher** (or drop an image on the screen): a jpg, png or webp template. It is shown at the largest size that fits, and every number below is in the template's own pixels.
+2. **Draw the code area** on the preview: press and drag. Drag the area to move it, drag a round corner handle to resize it. An area under 8 pixels on a side is dropped when you let go.
+3. The code is drawn live inside the area, centred, with the font, size, letter spacing, colour and outline of section 01. What you see is what the exported image will hold: the preview and the export use the same drawing function (`core/drawVoucher.ts`). The sample code keeps its random letters until the prefix, the length or "Numbers only" change.
+4. **02 Discount** and **03 Code** hold the settings of the old app with the same defaults (10 %, usage 1, once per customer, today to today + 30 days, `SUMMER-`, 100 vouchers, 8 characters). Without a Shopify connection section 02 shows "Not connected - open Settings"; the collection list loads once connected.
+5. The status bar shows the code area as a percentage of the template and the sample code.
+
+The font list is every font installed on the PC (read by Rust with `fontdb`, `src-tauri/src/fonts.rs`); the default is Impact, or the first font when the PC has none. Like the old app, the screen keeps nothing between runs and never asks about unsaved work.
+
+GENERATE! stays off, with the reason, until there is a template, a code area, a save folder, a prefix and a Shopify connection. A discount set to "Specific Collections" with none picked is also blocked: the old app turned that into a discount on **every** product.
+
 Two Shopify pitfalls from the old app:
 
 - **`DiscountCodeBasicInput` has no `codes` array.** The first code goes in the singular `code` field when the discount is created; every other code is added afterwards with `discountRedeemCodeBulkAdd`, in batches of at most 250.

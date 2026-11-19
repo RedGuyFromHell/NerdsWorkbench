@@ -93,6 +93,13 @@ export async function pickOpenFile(options: PickOptions): Promise<string | null>
   return open({ ...options, multiple: false, directory: false });
 }
 
+/** The folder the user picked, or null when the dialog was cancelled. */
+export async function pickFolder(options: { title: string }): Promise<string | null> {
+  requireDesktop();
+  const { open } = await import("@tauri-apps/plugin-dialog");
+  return open({ ...options, multiple: false, directory: true });
+}
+
 /** The path the user chose to save to (the dialog asks before replacing a file), or null when cancelled. */
 export async function pickSaveFile(
   options: PickOptions & { defaultName: string },

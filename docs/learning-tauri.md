@@ -219,3 +219,23 @@ See `src-tauri/src/lib.rs:54`.
 
 `TcpListener::bind` makes the socket, binds it and starts listening in one call, so there is no moment to set an option in between. The `socket2` crate gives the three steps apart: `Socket::new`, then options, then `bind` and `listen`, and `socket.into()` turns the result into a normal `TcpListener`. We need that moment for `SO_EXCLUSIVEADDRUSE`, the Windows option that keeps every other socket off the same address and port (Windows' `SO_REUSEADDR` lets a second program share a port, which on Linux it does not). `socket2` has no setter for it, so one call goes to the Windows API itself through `windows-sys`, inside an `unsafe` block: `unsafe` means "the compiler cannot check this call, the `// SAFETY:` comment says why it is sound". It is the only one in the app. The test reads the option back with `getsockopt`, because a second bind that Windows refuses anyway would prove nothing.
 See `src-tauri/src/shopify/oauth.rs:285`.
+
+## fontdb: listing the installed fonts from Rust
+
+A web page cannot list the fonts on the PC, so Rust does it: the `fontdb` crate reads the system font folders into a database, and each face carries its family names (the first one is the English name when the font has one). We take that first name, sort the names without regard to case and drop duplicates; that small helper is a plain function with cargo tests. Reading hundreds of font files takes a moment, so the command is `async` and does the reading inside `spawn_blocking`. `default-features = false` keeps out the Linux-only `fontconfig` code.
+See `src-tauri/src/fonts.rs:24`.
+
+## Canvas text: wait for the font, and measure it yourself
+
+A canvas draws with whatever font the browser has when `fillText` runs; a family it cannot find is replaced by another one without any error. `document.fonts.load('bold 12px "Impact"')` resolves when the browser can use the family, so the preview draws the code only after it. Letter spacing is done by hand: each glyph is measured with `measureText` and drawn on its own, because the canvas has no spacing setting that the export and the preview could share. `fontBoundingBoxAscent` and `fontBoundingBoxDescent` are the font's own ascent and descent, which is what the old app's centring used. A font with no bold face (Impact) is emboldened by the engine, and Qt and Chromium do that with slightly different widths: the old app's Impact code is about 2 % wider, centred on the same point.
+See `src/tools/voucher/core/drawVoucher.ts:45`.
+
+## Pointer capture on an overlay: a drag that survives leaving the box
+
+The selection is drawn and dragged on a transparent `div` laid over the canvas. `setPointerCapture` sends every following pointer event to that element even when the pointer leaves it, so a fast drag past the edge still ends cleanly. If the browser takes the capture away (a dialog opens, the pointer is cancelled), `lostpointercapture` fires: the same handler ends the drag, so a drag can never hang on. The pointer position is turned into the template's own pixels with the canvas's `getBoundingClientRect()`, whatever size CSS shows it at.
+See `src/tools/voucher/PreviewCanvas.tsx:118`.
+
+## An absolutely positioned child can stretch the page past its scroll box
+
+The checkboxes hide their real `<input>` with `position: absolute`. An absolute element belongs to the nearest positioned ancestor, and a scroll box (`overflow: auto`) that is not positioned is not one: the hidden inputs of checkboxes far down the scrolled settings column then belonged to the page, and the page became taller than the window although nothing visible overflowed. `position: relative` on the scroll box makes it their container, so it clips them. Found by comparing `document.documentElement.scrollHeight` with `innerHeight` in the browser check.
+See `src/tools/voucher/voucher.css:106`.

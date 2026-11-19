@@ -44,6 +44,9 @@ sha2 = "0.11.1"
 subtle = "2.6.1"
 # WHY: the OAuth listener's sockets are made by hand so the port can be taken exclusively.
 socket2 = "0.6.5"
+# WHY: the Voucher tool lists the installed font families for its font picker. Only the file-system
+# loader is needed (no fontconfig, which is for Linux).
+fontdb = { version = "0.24.0", default-features = false, features = ["std", "fs", "memmap"] }
 
 [target.'cfg(windows)'.dependencies]
 # WHY: SO_EXCLUSIVEADDRUSE, which socket2 has no setter for. The version socket2 already builds.

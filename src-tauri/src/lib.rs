@@ -1,5 +1,6 @@
 mod app_data;
 mod files;
+mod fonts;
 mod open_files;
 mod secrets;
 mod settings;
@@ -36,6 +37,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             files::read_file_bytes,
             files::write_file_bytes,
+            fonts::list_font_families,
             open_files::take_pending_open_files,
             app_data::read_app_text,
             app_data::write_app_text,

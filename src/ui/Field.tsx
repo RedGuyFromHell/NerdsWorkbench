@@ -32,19 +32,31 @@ interface FieldProps {
   onChange(value: string): void;
   hint?: string;
   placeholder?: string;
+  /** "password" hides what is typed. */
+  type?: "text" | "password";
   /** Mono text, for codes and paths. */
   mono?: boolean;
   disabled?: boolean;
 }
 
 /** A labelled text input. */
-export function Field({ label, value, onChange, hint, placeholder, mono, disabled }: FieldProps) {
+export function Field({
+  label,
+  value,
+  onChange,
+  hint,
+  placeholder,
+  type = "text",
+  mono,
+  disabled,
+}: FieldProps) {
   const id = useId();
   return (
     <FieldFrame label={label} hint={hint} htmlFor={id}>
       <input
         id={id}
-        type="text"
+        type={type}
+        autoComplete="off"
         className={mono ? "input input--mono" : "input"}
         value={value}
         placeholder={placeholder}

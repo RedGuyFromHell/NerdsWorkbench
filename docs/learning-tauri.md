@@ -179,3 +179,78 @@ A write must not leave half a file if the app is killed mid-write. So the text g
 
 A command that takes `app: AppHandle` cannot be called from a unit test, so each command is a thin wrapper over a function that takes the root folder as a parameter, and the tests run those against a fresh folder under the system temp folder.
 See `src-tauri/src/app_data.rs:82`.
+
+## Randomness as a parameter, and the system's secure generator
+
+`generateCodes` does not call a random function itself: it receives one (`randomIndex`) and the tests pass a scripted or seeded one, so every run draws the same codes and a repeated code can be forced on purpose. In the real app the default is `crypto.getRandomValues`, the web view's secure random source (Python's `random` was not secure, and voucher codes should be hard to guess). A plain `% 10` on a 32-bit random number slightly favours low digits, so draws above the largest whole multiple are thrown away and drawn again.
+See `src/tools/voucher/core/codeGen.ts:22`.
+
+## Python's `round` and `//` are not JavaScript's
+
+The old app was Python, and a port must put every pixel in the same place. Python's `round(2.5)` gives 2 (an exact half goes to the even neighbour, "banker's rounding") while `Math.round(2.5)` gives 3, so `roundHalfToEven` exists. Python's `//` rounds towards minus infinity, which is `Math.floor`; `Math.round` and `Math.trunc` both differ on a half or a negative. Each call site is decided on its own and pinned by a test whose value would give a different answer.
+See `src/tools/voucher/core/roundHalfToEven.ts:4`.
+
+## Proving a test by putting the bug back
+
+A test that passes tells you little until you have seen it fail. After the code works, change one line on purpose (swap `Math.floor` for `Math.round`, drop a `> 0` check), run that test file, and watch it go red; then restore the line. This slice did it for every rule, and it found one test (the "ten times" boundary) that stayed green with the rule changed, so a case was added. It is a hand-made version of what mutation-testing tools automate.
+See `src/tools/voucher/core/codeLayout.test.ts:32`.
+
+## Async commands: work that waits must not block the window
+
+A command written as a plain `fn` runs on the main thread, the one that also draws the window, so it must return at once. A command written as `async fn` runs on Tauri's async runtime (tokio) instead, and can `.await` an HTTP call for seconds while the window stays alive. Our Shopify commands are all `async`. One rule comes with it: an async command that borrows something (such as `State<'_, T>`) must return a `Result`.
+See `src-tauri/src/shopify/oauth.rs:472`.
+
+## `spawn_blocking`: old-style waiting inside async code
+
+The OAuth listener waits up to two minutes for the browser, with plain blocking sockets (`std::net`) and a short sleep between looks. Doing that directly inside an `async fn` would freeze one of the runtime's few worker threads. `tauri::async_runtime::spawn_blocking` moves the closure to a separate pool made for blocking work and gives back something to `.await`. It is the Rust cousin of `Task.Run` around a blocking call in C#.
+See `src-tauri/src/shopify/oauth.rs:500`.
+
+## The keyring crate and a trait as the test seam
+
+`keyring` stores a secret in the operating system's own vault: on Windows, the Credential Manager. An entry is named by a service and a user (`nerds-workbench` and `shopify-token`), and it holds one password. Tests must never touch the real vault, so the code does not call `keyring` directly: it talks to a small trait, `SecretStore` (a trait is Rust's interface). The app passes the real `CredentialManager`; the tests pass a `MemoryStore` that can also be told to fail, which is how "the old file is not rewritten when a secret cannot be stored" is proven.
+See `src-tauri/src/secrets.rs:11`.
+
+## Managed state that is filled in `setup`
+
+`app.manage(value)` can also be called inside `setup`, when the value needs the app itself to be computed. The import of the old config runs there once, and its outcome is managed as `OldConfigImport`. It never changes afterwards, so it needs no `Mutex`: the `shopify_status` command just reads it through `State<'_, OldConfigImport>` each time the Settings window asks.
+See `src-tauri/src/lib.rs:54`.
+
+## socket2 and an exclusive port: making the socket by hand
+
+`TcpListener::bind` makes the socket, binds it and starts listening in one call, so there is no moment to set an option in between. The `socket2` crate gives the three steps apart: `Socket::new`, then options, then `bind` and `listen`, and `socket.into()` turns the result into a normal `TcpListener`. We need that moment for `SO_EXCLUSIVEADDRUSE`, the Windows option that keeps every other socket off the same address and port (Windows' `SO_REUSEADDR` lets a second program share a port, which on Linux it does not). `socket2` has no setter for it, so one call goes to the Windows API itself through `windows-sys`, inside an `unsafe` block: `unsafe` means "the compiler cannot check this call, the `// SAFETY:` comment says why it is sound". It is the only one in the app. The test reads the option back with `getsockopt`, because a second bind that Windows refuses anyway would prove nothing.
+See `src-tauri/src/shopify/oauth.rs:285`.
+
+## fontdb: listing the installed fonts from Rust
+
+A web page cannot list the fonts on the PC, so Rust does it: the `fontdb` crate reads the system font folders into a database, and each face carries its family names (the first one is the English name when the font has one). We take that first name, sort the names without regard to case and drop duplicates; that small helper is a plain function with cargo tests. Reading hundreds of font files takes a moment, so the command is `async` and does the reading inside `spawn_blocking`. `default-features = false` keeps out the Linux-only `fontconfig` code.
+See `src-tauri/src/fonts.rs:24`.
+
+## Canvas text: wait for the font, and measure it yourself
+
+A canvas draws with whatever font the browser has when `fillText` runs; a family it cannot find is replaced by another one without any error. `document.fonts.load('bold 12px "Impact"')` resolves when the browser can use the family, so the preview draws the code only after it. Letter spacing is done by hand: each glyph is measured with `measureText` and drawn on its own, because the canvas has no spacing setting that the export and the preview could share. `fontBoundingBoxAscent` and `fontBoundingBoxDescent` are the font's own ascent and descent, which is what the old app's centring used. A font with no bold face (Impact) is emboldened by the engine, and Qt and Chromium do that with slightly different widths: the old app's Impact code is about 2 % wider, centred on the same point.
+See `src/tools/voucher/core/drawVoucher.ts:45`.
+
+## Pointer capture on an overlay: a drag that survives leaving the box
+
+The selection is drawn and dragged on a transparent `div` laid over the canvas. `setPointerCapture` sends every following pointer event to that element even when the pointer leaves it, so a fast drag past the edge still ends cleanly. If the browser takes the capture away (a dialog opens, the pointer is cancelled), `lostpointercapture` fires: the same handler ends the drag, so a drag can never hang on. The pointer position is turned into the template's own pixels with the canvas's `getBoundingClientRect()`, whatever size CSS shows it at.
+See `src/tools/voucher/PreviewCanvas.tsx:118`.
+
+## An absolutely positioned child can stretch the page past its scroll box
+
+The checkboxes hide their real `<input>` with `position: absolute`. An absolute element belongs to the nearest positioned ancestor, and a scroll box (`overflow: auto`) that is not positioned is not one: the hidden inputs of checkboxes far down the scrolled settings column then belonged to the page, and the page became taller than the window although nothing visible overflowed. `position: relative` on the scroll box makes it their container, so it clips them. Found by comparing `document.documentElement.scrollHeight` with `innerHeight` in the browser check.
+See `src/tools/voucher/voucher.css:106`.
+
+## AbortSignal as a parameter: stopping a long job between two steps
+
+A long job cannot be killed from outside without leaving a half-written file, so it has to ask "should I stop?" at a point where stopping is clean. `AbortController` is the browser's standard pair for that: the owner keeps the controller and calls `abort()`, the job gets only its `signal` and reads `signal.aborted`. The generate run reads it between two images and nowhere else, so the Shopify part is never cut in the middle; the screen aborts when it unmounts (`src/tools/voucher/useGenerateRun.ts:36`).
+See `src/tools/voucher/core/generateRun.ts:156`.
+
+## A Shopify mutation that only queues: follow it with a bounded poll
+
+`discountRedeemCodeBulkAdd` answers at once with a `bulkCreation { id }` and does the work later, so a clean answer proves nothing. The run asks `discountRedeemCodeBulkCreation(id:)` for `done`, `importedCount` and `failedCount` after a short sleep, at most 120 times, and treats a batch that never finishes as a failure with the count seen so far. The sleep is a parameter, so the tests pass one that returns at once and 120 polls take a millisecond.
+See `src/tools/voucher/core/generateRun.ts:311`.
+
+## From a canvas to a file: toBlob, then raw bytes to Rust
+
+`canvas.toBlob(callback, mimeType, quality)` encodes the canvas as JPG or PNG and calls back with a `Blob` (or null when it cannot). `blob.arrayBuffer()` gives the bytes, and `write_file_bytes` takes them as the raw request body, so no base64 and no JSON array of numbers crosses to Rust. One canvas is made per run and drawn over for each code: memory stays flat for 100,000 vouchers, and each `await` hands the thread back so the window keeps painting.
+See `src/tools/voucher/voucherImages.ts:21`.

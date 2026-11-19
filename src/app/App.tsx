@@ -24,10 +24,18 @@ interface ToolHostProps {
   openRequest: OpenRequest | null;
   onStatus(id: ToolId, text: string): void;
   onUnsavedWork(id: ToolId, work: UnsavedWork | null): void;
+  onOpenSettings(sectionId: string): void;
 }
 
 /** Holds one opened tool. Hiding it (not unmounting) keeps unsaved work alive on the home screen. */
-function ToolHost({ tool, visible, openRequest, onStatus, onUnsavedWork }: ToolHostProps) {
+function ToolHost({
+  tool,
+  visible,
+  openRequest,
+  onStatus,
+  onUnsavedWork,
+  onOpenSettings,
+}: ToolHostProps) {
   // WHY: stable functions, so a tool can put them in an effect's dependencies without a loop.
   const setStatus = useCallback((text: string) => onStatus(tool.id, text), [onStatus, tool.id]);
   const setUnsavedWork = useCallback(
@@ -44,6 +52,7 @@ function ToolHost({ tool, visible, openRequest, onStatus, onUnsavedWork }: ToolH
             openRequest={openRequest}
             setStatus={setStatus}
             setUnsavedWork={setUnsavedWork}
+            openSettings={onOpenSettings}
           />
         </Suspense>
       </div>
@@ -57,7 +66,8 @@ export function App() {
   const activeId = screen === "home" ? null : screen;
   // Every tool opened so far, in the order of opening. A tool stays here until the app closes.
   const [openedIds, setOpenedIds] = useState<readonly ToolId[]>([]);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Null while the Settings window is closed; open, it names the section to show first, if any.
+  const [settings, setSettings] = useState<{ sectionId: string | null } | null>(null);
   const updates = useUpdates();
   const [statuses, setStatuses] = useState<Partial<Record<ToolId, string>>>({});
   // The file Explorer asked each tool to open, and the message when one could not be opened.
@@ -110,6 +120,8 @@ export function App() {
     setStatuses((current) => (current[id] === text ? current : { ...current, [id]: text }));
   }, []);
 
+  const openSettingsAt = useCallback((sectionId: string) => setSettings({ sectionId }), []);
+
   const activeTool = activeId === null ? null : getTool(activeId);
   useShellNavigation({ onTool: activeTool !== null, goHome, move });
 
@@ -119,7 +131,7 @@ export function App() {
       footer={
         <StatusBar
           text={(activeId === null ? "" : statuses[activeId]) || updates.notice}
-          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenSettings={() => setSettings({ sectionId: null })}
         />
       }
     >
@@ -134,10 +146,15 @@ export function App() {
           openRequest={openRequests[id] ?? null}
           onStatus={setToolStatus}
           onUnsavedWork={setUnsavedWork}
+          onOpenSettings={openSettingsAt}
         />
       ))}
-      {settingsOpen ? (
-        <SettingsWindow checkForUpdates={updates.checkNow} onClose={() => setSettingsOpen(false)} />
+      {settings ? (
+        <SettingsWindow
+          checkForUpdates={updates.checkNow}
+          focusSectionId={settings.sectionId}
+          onClose={() => setSettings(null)}
+        />
       ) : null}
       {openError ? (
         <Dialog

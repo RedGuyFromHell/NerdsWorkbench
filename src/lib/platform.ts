@@ -1,8 +1,23 @@
 // Tells the UI whether it runs inside the Tauri window or in a plain browser (the Vite URL), and
 // wraps the few window calls the shell needs. In a plain browser they do nothing, so the layout
-// can still be checked there.
+// can still be checked there. Also the one way to call a Rust command.
+import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
+
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+}
+
+/**
+ * Calls a Rust command. Callers check `isTauri()` first: in a plain browser there is no command to
+ * call. WHY: the Tauri API module is imported on demand, so a plain browser never loads it.
+ */
+export async function invokeCommand<T>(
+  command: string,
+  args?: InvokeArgs,
+  options?: InvokeOptions,
+): Promise<T> {
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(command, args, options);
 }
 
 // WHY: the Tauri API modules are imported on demand, so a plain browser never loads them.

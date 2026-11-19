@@ -1,8 +1,11 @@
 mod app_data;
 mod files;
+mod fonts;
 mod open_files;
+mod secrets;
+mod settings;
+mod shopify;
 
-#[cfg(desktop)]
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -27,20 +30,34 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         // WHY: native open and save dialogs; the files themselves go through the files module.
         .plugin(tauri_plugin_dialog::init())
+        // WHY: the Shopify connect opens the approval page in the default browser. Only Rust calls
+        // it, so the capability file gives the page no opener permission.
+        .plugin(tauri_plugin_opener::init())
         .manage(open_files::PendingOpenFiles::default())
         .invoke_handler(tauri::generate_handler![
             files::read_file_bytes,
             files::write_file_bytes,
+            fonts::list_font_families,
             open_files::take_pending_open_files,
             app_data::read_app_text,
             app_data::write_app_text,
-            app_data::list_app_files
+            app_data::list_app_files,
+            secrets::save_client_secret,
+            secrets::disconnect,
+            settings::shopify_status,
+            settings::save_shopify_settings,
+            shopify::oauth::shopify_connect,
+            shopify::graphql::shopify_graphql
         ])
         .setup(|app| {
             // WHY: a double-clicked file starts the app with its path in our own arguments; the page
             // takes it from the queue once it has mounted.
             let args: Vec<String> = std::env::args().collect();
             open_files::deliver(app.handle(), open_files::paths_from_args(&args));
+
+            // WHY: the old PyQt app kept the Shopify token and client secret as plain text in its
+            // config file. They move to the Credential Manager once, before any window can ask.
+            app.manage(settings::import_at_start(app.handle()));
 
             // WHY: self-update is a desktop feature; the plugin does not exist on mobile.
             #[cfg(desktop)]

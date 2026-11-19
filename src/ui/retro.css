@@ -469,7 +469,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* A tall dialog (Settings) scrolls inside; the title bar and the buttons stay on screen. */
+  max-height: calc(100vh - 180px);
   padding: 18px;
+  overflow-y: auto;
 }
 
 .dialog__actions {

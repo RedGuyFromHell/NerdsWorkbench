@@ -1,0 +1,222 @@
+/* The Voucher screen: the preview on the left, the settings column on the right. Colours come from
+   the tokens in src/styles/tokens.css. */
+
+.voucher {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  height: 100%;
+  min-height: 0;
+}
+
+.voucher--dropping .voucher-preview {
+  outline: 3px dashed var(--focus);
+  outline-offset: -8px;
+}
+
+/* ---------- Preview ---------- */
+
+/* The stage is a size container, so the frame can take the largest box of the template's shape. */
+.voucher-preview {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 0;
+  container-type: size;
+  background-color: var(--desk);
+  background-image: radial-gradient(circle at 1px 1px, var(--dot) 1.5px, transparent 0);
+  background-size: 24px 24px;
+}
+
+.voucher-preview__empty {
+  padding: 6px 12px;
+  background: var(--paper);
+  border: var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* --ratio is the template's width over its height. */
+.voucher-preview__frame {
+  position: relative;
+  width: min(100cqw - 32px, (100cqh - 32px) * var(--ratio));
+  aspect-ratio: var(--ratio);
+  box-shadow: var(--shadow-hard);
+  outline: var(--border);
+}
+
+.voucher-preview__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.voucher-preview__overlay {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.voucher-selection {
+  position: absolute;
+  box-sizing: border-box;
+  cursor: move;
+  background: color-mix(in srgb, var(--brand-purple) 8%, transparent);
+  border: 2px dashed var(--ink);
+}
+
+.voucher-selection__handle {
+  position: absolute;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  background: var(--field);
+  border: 2px solid var(--brand-purple);
+  border-radius: 50%;
+}
+
+.voucher-selection__handle--nw {
+  top: -8px;
+  left: -8px;
+  cursor: nwse-resize;
+}
+
+.voucher-selection__handle--ne {
+  top: -8px;
+  right: -8px;
+  cursor: nesw-resize;
+}
+
+.voucher-selection__handle--sw {
+  bottom: -8px;
+  left: -8px;
+  cursor: nesw-resize;
+}
+
+.voucher-selection__handle--se {
+  right: -8px;
+  bottom: -8px;
+  cursor: nwse-resize;
+}
+
+/* ---------- Settings ---------- */
+
+.voucher-settings {
+  /* WHY: positioned, so the checkboxes' hidden inputs (absolute) are clipped by this scroll box and do not stretch the page. */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding: 14px;
+  overflow-y: auto;
+  background: var(--paper);
+  border-left: var(--border);
+}
+
+.voucher-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voucher-pair,
+.voucher-triple {
+  display: grid;
+  /* WHY: a label that wraps (a long hint) pushes its field down; the fields stay level instead. */
+  align-items: end;
+  gap: 10px;
+}
+
+.voucher-pair {
+  grid-template-columns: 1fr 1fr;
+}
+
+.voucher-triple {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.path-field {
+  display: flex;
+  gap: 8px;
+}
+
+.path-field .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.voucher-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.voucher-notice p {
+  margin: 0;
+}
+
+.voucher-hint {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.voucher-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.voucher-confirm__line {
+  display: flex;
+  gap: 12px;
+}
+
+.voucher-confirm__line dt {
+  flex: 0 0 96px;
+  color: var(--muted);
+}
+
+.voucher-confirm__line dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.voucher-collections {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 140px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--field);
+  border: var(--border);
+  border-radius: var(--radius);
+}
+
+.voucher-generate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: var(--border);
+}

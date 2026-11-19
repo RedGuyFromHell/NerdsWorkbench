@@ -1,13 +1,22 @@
 # Nerd's Workbench
 
-A Windows desktop app with the small tools Nerd Castle uses. It is built on Tauri 2 with React and TypeScript (Vite). It replaces the old PyQt app, which lives on in the `NerdsWorkbench-legacy` repo.
+A Windows desktop app with the small tools Nerd Castle uses, built on Tauri 2 with React and TypeScript (Vite). This is version 1.0: it replaces the old PyQt app, which lives on in the `NerdsWorkbench-legacy` repo and is no longer needed (see "Retire the old app" in `docs/releasing.md`).
 
-The home screen shows one tile per tool. Planned tools:
+The home screen shows one tile per tool:
 
-- **Disc Studio**: a port of `disc-studio.html`.
-- **Voucher Generator**: the voucher tab of the old app, same features.
+- **Disc Studio**: designs a printable disc (a coaster or a badge) and exports the print PNG.
+- **Voucher Generator**: makes a batch of unique discount codes, creates the discount in Shopify and writes one voucher image per code.
+- **Payout**: works out, once a month, what each printer and painter is owed.
 
-Right now both tools are placeholders: the shell, the tool registry and the gate are in place.
+## Install and update
+
+Download the newest setup `.exe` from this repo's Releases page and run it. The installer is per user: it needs no admin rights. Windows SmartScreen may warn about an unknown publisher; choose _More info_, then _Run anyway_.
+
+The app looks for a newer release on every start and offers it in a prompt; _Update now_ downloads it, installs it and restarts the app. Settings (the gear at the left of the status bar) shows the installed version.
+
+## Releasing
+
+A release is a tag `vX.Y.Z` pushed to GitHub, with the same version in `package.json`. The steps, what the installer registers and how to retire the old PyQt app are in `docs/releasing.md`.
 
 ## Development setup
 
@@ -132,3 +141,84 @@ The installer registers `.nerd` for the current user, so a double-click opens th
 Only one copy of the app runs. If it is already open, a second launch (the double-click) does not start a second window: the running window comes to the front and opens the file. Rust queues the paths (`src-tauri/src/open_files.rs`) and the page takes them (`src/app/openFiles.ts`); the decision of which tool gets a file is in `src/app/routeOpenFile.ts`, with tests.
 
 The page reads and writes files through two Rust commands (`read_file_bytes`, `write_file_bytes` in `src-tauri/src/files.rs`) that carry the bytes as a raw request body, with the paths coming from the Windows dialogs. In a plain browser (the Vite URL) the file buttons show "Files can only be opened and saved in the desktop app."
+
+## Shopify connection
+
+The Shopify connection belongs to the whole app, not to one tool. It is set up once in the Settings window (the gear at the left of the status bar), section _Shopify connection_. A tool that needs Shopify shows "Not connected - open Settings" until then; the other tools work without it.
+
+### Setting it up
+
+The app connects through a Shopify app of your own, made in the Shopify Dev Dashboard (not an App Store app):
+
+1. In the Dev Dashboard, create an app (or open the existing one) and make a version with:
+   - redirect URL `http://localhost:8765/callback`, exactly like that (not `127.0.0.1`, no trailing slash);
+   - scopes `read_price_rules`, `write_price_rules`, `read_discounts`, `write_discounts`, `read_products`, `read_orders`.
+2. Install the app on the store.
+3. In Nerd's Workbench, open Settings and fill in the store (`your-store.myshopify.com`), the app's client ID and its client secret.
+4. Press _Connect to Shopify_. The browser opens Shopify's approval page; approve within two minutes. The browser tab then says "Approved" and the Settings window says "Connected".
+
+If port 8765 is taken by another program, Connect says so: close that program and connect again. The port is only open while a connect is waiting, on this PC only (`127.0.0.1` and `::1`), no other program can share it, and it closes after the first answer that belongs to this connect. Any other request gets a 404.
+
+### Where the secrets live
+
+- The **access token** and the **client secret** are in Windows Credential Manager (_Windows Credentials_, generic credentials `shopify-token.nerds-workbench` and `shopify-client-secret.nerds-workbench`). They are never written to a file.
+- The store name, the client ID and the API version (`2026-04` by default) are in `settings.json` in the app's config folder (`%APPDATA%\eu.nerdcastle.workbench\`). Nothing secret is in that file.
+- The page (the web view) never gets the token or the secret. It can ask whether they exist, send a new client secret, and send a GraphQL query; Rust adds the token and returns the data (`src-tauri/src/shopify/`, called from `src/lib/shopify/client.ts`). An error shows the HTTP status and Shopify's own message, never a secret.
+
+### Coming from the old app
+
+The old PyQt app kept all of this, token and secret included, as plain text in `~/.nerdworkbench/config.json`. The first start of this app imports it: the token and the secret go to Windows Credential Manager, then the old file is rewritten without those two keys, then `settings.json` is written. If Credential Manager refuses, the old file is left untouched and the next start tries again. The Settings window says when the import happened, or why it failed.
+
+Every later start looks again. If the old file holds a token or a secret once more (the old app ran, or a sync or a backup put the file back), they are taken out again. What the app already holds in Credential Manager is kept, and an old token is only stored when the old file names the same store as Settings.
+
+After the import, if the old file was ever synced (OneDrive, Dropbox) or backed up, its copies still hold the client secret as plain text. Rotate the client secret in the Dev Dashboard, enter the new one in Settings and connect again.
+
+### Disconnecting
+
+_Disconnect_ in the Settings window removes both entries from Windows Credential Manager (you can check there). That removes the key from this PC only: the token stays valid on Shopify until the app is uninstalled in the Shopify admin. Disconnect does not revoke it. Changing the store name in Settings also removes the token, because a token only works on the store that issued it.
+
+## Voucher Generator
+
+Makes a batch of unique discount codes, creates the matching discount in Shopify, and renders one voucher image per code. The decisions (code generation, text layout, the code-area selection, the discount input, the code batches) are plain functions in `src/tools/voucher/core/` and `src/tools/voucher/shopify/`, each with a test beside it.
+
+### Using the screen
+
+The preview is on the left, the settings on the right. Under the GENERATE! button a line says what is still missing, or what a run will create.
+
+1. **Choose Voucher** (or drop an image on the screen): a jpg, png or webp template. It is shown at the largest size that fits, and every number below is in the template's own pixels.
+2. **Draw the code area** on the preview: press and drag. Drag the area to move it, drag a round corner handle to resize it. An area under 8 pixels on a side is dropped when you let go.
+3. The code is drawn live inside the area, centred, with the font, size, letter spacing, colour and outline of section 01. What you see is what the exported image will hold: the preview and the export use the same drawing function (`core/drawVoucher.ts`). The sample code keeps its random letters until the prefix, the length or "Numbers only" change.
+4. **02 Discount** and **03 Code** hold the settings of the old app with the same defaults (10 %, usage 1, once per customer, today to today + 30 days, `SUMMER-`, 100 vouchers, 8 characters). Without a Shopify connection section 02 shows "Not connected - open Settings"; the collection list loads once connected.
+5. The status bar shows the code area as a percentage of the template and the sample code.
+
+The font list is every font installed on the PC (read by Rust with `fontdb`, `src-tauri/src/fonts.rs`); the default is Impact, or the first font when the PC has none. Like the old app, the screen keeps nothing between runs and never asks about unsaved work.
+
+GENERATE! stays off, with the reason, until there is a template, a code area, a save folder, a prefix, a Shopify connection, a start date and an end date that is not before the start. A discount set to "Specific Collections" with none picked is also blocked: the old app turned that into a discount on **every** product (the run itself refuses it a second time).
+
+The number fields take `,` or `.` as the decimal point. A number outside a field's range is never moved to the nearest limit: when you leave the field it goes back to the last valid value, so a slip such as `1000` for 10 % cannot become 100 %. The count fields round to whole numbers, the percentage to two decimals.
+
+GENERATE! first opens a window that lists what will be created: the number of codes, the percentage, what it applies to, the minimum order, the usage limit, the dates and the save folder. Only _Create in Shopify_ starts the run; Cancel does nothing.
+
+### What GENERATE! does
+
+One press is one run, in this order (`core/generateRun.ts`, tested with stand-ins for Shopify and the disk):
+
+1. It makes the codes and writes them to `codes-<prefix>-<yyyyMMdd-HHmmss>.csv` in the save folder (the prefix without its trailing dash, the local time the run started; inside, a header line `code`, then one code per line). The file is written before anything is sent to Shopify, so the codes can never exist only there. Each run gets its own file, so a second run never replaces the record of the first. A save folder that does not exist yet is made.
+2. It creates **one** discount in Shopify, titled `Workbench — <prefix>`, with the first code. The start date begins at 00:00:00 UTC and the end date ends at 23:59:59 UTC, as in the old app.
+3. It adds the other codes in batches of 250 and waits for Shopify to finish each batch (up to two minutes a batch) before it sends the next.
+4. It writes one image per code to the save folder, named after the code: JPG at quality 0.95 for a jpg template, PNG for a png or webp one. A character Windows does not allow in a file name becomes `-` in the name; the code itself is unchanged.
+
+While it runs, the button says GENERATING… and the line under it shows the step and the count; then DONE! for about two seconds. The voucher image cannot be changed during a run. A run overwrites images of the same names already in the folder: use a fresh folder for each batch.
+
+If something fails, a message window says what exists:
+
+- **Shopify refused the discount** (it answered with user errors or GraphQL errors), or the run failed before the call: "Nothing was created in Shopify." If the codes file was already written, its codes do not exist in Shopify: delete the file.
+- **The create call failed any other way** (no connection, a timeout, a server error, an answer that could not be read): the app cannot know whether Shopify created the discount. The message names the discount's title and says it **may exist**: look under Discounts in the Shopify admin before you delete the codes file.
+- **After the discount was created:** the message names the discount, how many of the codes are in Shopify (or how many images were written) and the path of the codes file. The count is exact only when Shopify confirmed every batch sent; when a batch was cut off part-way the message says "at least N". Delete that discount in the Shopify admin (Discounts) before generating again: a second run makes new codes and a second discount, it does not finish the first.
+
+Leaving the screen or closing the window during a run asks first: _Save_ waits for the run to finish, _Don't save_ stops it before the next image, _Cancel_ stays. If a stopped run had reached the images, the discount and the codes file are complete; if it had not, check the discount in the Shopify admin.
+
+Two Shopify pitfalls from the old app:
+
+- **`DiscountCodeBasicInput` has no `codes` array.** The first code goes in the singular `code` field when the discount is created; every other code is added afterwards with `discountRedeemCodeBulkAdd`, in batches of at most 250.
+- **`discountRedeemCodeBulkAdd` only queues the codes.** Shopify creates them in the background and the mutation returns a `bulkCreation { id }`. An inline fragment `... on DiscountCodeBulkCreation` on a `node(id)` query fails (there is no such type); ask the root query `discountRedeemCodeBulkCreation(id:)` for `done`, `importedCount` and `failedCount` instead. The old app did not look, so a refused code went unnoticed.

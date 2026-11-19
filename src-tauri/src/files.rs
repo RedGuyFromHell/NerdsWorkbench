@@ -1,6 +1,7 @@
 // Two commands move file bytes between the page and the disk: the page picks a path with the
 // dialog plugin, then reads or writes it here. Raw IPC bodies carry the bytes (a JSON array of
 // numbers would be ten times bigger and slow for a project full of images).
+use std::path::Path;
 use tauri::ipc::{InvokeBody, Request, Response};
 
 /// The request header that carries the target path of `write_file_bytes`, percent-encoded.
@@ -39,6 +40,16 @@ fn decode_path_header(value: &str) -> Result<String, String> {
     Ok(path)
 }
 
+/// Writes the bytes to the path, replacing the file. A missing folder on the way is made first.
+/// WHY: a save folder can be typed by hand or deleted after it was picked, and the first write of
+/// a voucher run is the codes file, which must be down before anything is sent to Shopify.
+fn write_with_folders(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    if let Some(folder) = path.parent() {
+        std::fs::create_dir_all(folder)?;
+    }
+    std::fs::write(path, bytes)
+}
+
 /// Reads the whole file and returns its bytes as the raw response body.
 #[tauri::command]
 pub fn read_file_bytes(path: String) -> Result<Response, String> {
@@ -47,7 +58,8 @@ pub fn read_file_bytes(path: String) -> Result<Response, String> {
         .map_err(|error| format!("Cannot read {path}: {error}"))
 }
 
-/// Writes the raw request body to the path in the `x-file-path` header, replacing the file.
+/// Writes the raw request body to the path in the `x-file-path` header, replacing the file and
+/// making its folder when that is missing.
 #[tauri::command]
 pub fn write_file_bytes(request: Request<'_>) -> Result<(), String> {
     let InvokeBody::Raw(bytes) = request.body() else {
@@ -60,7 +72,8 @@ pub fn write_file_bytes(request: Request<'_>) -> Result<(), String> {
         .to_str()
         .map_err(|_| "The file path header is not plain text.".to_string())?;
     let path = decode_path_header(header)?;
-    std::fs::write(&path, bytes).map_err(|error| format!("Cannot write {path}: {error}"))
+    write_with_folders(Path::new(&path), bytes)
+        .map_err(|error| format!("Cannot write {path}: {error}"))
 }
 
 #[cfg(test)]
@@ -103,5 +116,30 @@ mod tests {
     #[test]
     fn rejects_an_empty_path() {
         assert!(decode_path_header("").is_err());
+    }
+
+    #[test]
+    fn makes_the_missing_folders_before_it_writes() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root
+            .path()
+            .join("vouchers")
+            .join("batch 1")
+            .join("codes.csv");
+
+        write_with_folders(&path, b"code\nA\n").unwrap();
+
+        assert_eq!(std::fs::read(&path).unwrap(), b"code\nA\n");
+    }
+
+    #[test]
+    fn replaces_a_file_in_a_folder_that_exists() {
+        let root = tempfile::tempdir().unwrap();
+        let path = root.path().join("codes.csv");
+        std::fs::write(&path, b"old").unwrap();
+
+        write_with_folders(&path, b"new").unwrap();
+
+        assert_eq!(std::fs::read(&path).unwrap(), b"new");
     }
 }

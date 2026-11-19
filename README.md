@@ -175,7 +175,7 @@ After the import, if the old file was ever synced (OneDrive, Dropbox) or backed 
 
 ### Disconnecting
 
-_Disconnect_ in the Settings window removes both entries from Windows Credential Manager (you can check there). The app stays installed on the store: to revoke the token itself, uninstall the app in the Shopify admin. Changing the store name in Settings also removes the token, because a token only works on the store that issued it.
+_Disconnect_ in the Settings window removes both entries from Windows Credential Manager (you can check there). That removes the key from this PC only: the token stays valid on Shopify until the app is uninstalled in the Shopify admin. Disconnect does not revoke it. Changing the store name in Settings also removes the token, because a token only works on the store that issued it.
 
 ## Voucher Generator
 
@@ -193,25 +193,30 @@ The preview is on the left, the settings on the right. Under the GENERATE! butto
 
 The font list is every font installed on the PC (read by Rust with `fontdb`, `src-tauri/src/fonts.rs`); the default is Impact, or the first font when the PC has none. Like the old app, the screen keeps nothing between runs and never asks about unsaved work.
 
-GENERATE! stays off, with the reason, until there is a template, a code area, a save folder, a prefix and a Shopify connection. A discount set to "Specific Collections" with none picked is also blocked: the old app turned that into a discount on **every** product.
+GENERATE! stays off, with the reason, until there is a template, a code area, a save folder, a prefix, a Shopify connection, a start date and an end date that is not before the start. A discount set to "Specific Collections" with none picked is also blocked: the old app turned that into a discount on **every** product (the run itself refuses it a second time).
+
+The number fields take `,` or `.` as the decimal point. A number outside a field's range is never moved to the nearest limit: when you leave the field it goes back to the last valid value, so a slip such as `1000` for 10 % cannot become 100 %. The count fields round to whole numbers, the percentage to two decimals.
+
+GENERATE! first opens a window that lists what will be created: the number of codes, the percentage, what it applies to, the minimum order, the usage limit, the dates and the save folder. Only _Create in Shopify_ starts the run; Cancel does nothing.
 
 ### What GENERATE! does
 
 One press is one run, in this order (`core/generateRun.ts`, tested with stand-ins for Shopify and the disk):
 
-1. It makes the codes and writes them to `codes.csv` in the save folder (a header line `code`, then one code per line). The file is written before anything is sent to Shopify, so the codes can never exist only there.
+1. It makes the codes and writes them to `codes-<prefix>-<yyyyMMdd-HHmmss>.csv` in the save folder (the prefix without its trailing dash, the local time the run started; inside, a header line `code`, then one code per line). The file is written before anything is sent to Shopify, so the codes can never exist only there. Each run gets its own file, so a second run never replaces the record of the first. A save folder that does not exist yet is made.
 2. It creates **one** discount in Shopify, titled `Workbench — <prefix>`, with the first code. The start date begins at 00:00:00 UTC and the end date ends at 23:59:59 UTC, as in the old app.
 3. It adds the other codes in batches of 250 and waits for Shopify to finish each batch (up to two minutes a batch) before it sends the next.
 4. It writes one image per code to the save folder, named after the code: JPG at quality 0.95 for a jpg template, PNG for a png or webp one. A character Windows does not allow in a file name becomes `-` in the name; the code itself is unchanged.
 
-While it runs, the button says GENERATING… and the line under it shows the step and the count; then DONE! for about two seconds. The voucher image cannot be changed during a run. A run overwrites a `codes.csv` and images of the same names already in the folder: use a fresh folder for each batch.
+While it runs, the button says GENERATING… and the line under it shows the step and the count; then DONE! for about two seconds. The voucher image cannot be changed during a run. A run overwrites images of the same names already in the folder: use a fresh folder for each batch.
 
 If something fails, a message window says what exists:
 
-- **Before the discount was created:** "Nothing was created in Shopify." If `codes.csv` was already written, its codes do not exist in Shopify: delete the file.
-- **After the discount was created:** the message names the discount, how many of the codes are in Shopify (or how many images were written) and the path of `codes.csv`. Delete that discount in the Shopify admin (Discounts) before generating again: a second run makes new codes and a second discount, it does not finish the first.
+- **Shopify refused the discount** (it answered with user errors or GraphQL errors), or the run failed before the call: "Nothing was created in Shopify." If the codes file was already written, its codes do not exist in Shopify: delete the file.
+- **The create call failed any other way** (no connection, a timeout, a server error, an answer that could not be read): the app cannot know whether Shopify created the discount. The message names the discount's title and says it **may exist**: look under Discounts in the Shopify admin before you delete the codes file.
+- **After the discount was created:** the message names the discount, how many of the codes are in Shopify (or how many images were written) and the path of the codes file. The count is exact only when Shopify confirmed every batch sent; when a batch was cut off part-way the message says "at least N". Delete that discount in the Shopify admin (Discounts) before generating again: a second run makes new codes and a second discount, it does not finish the first.
 
-Closing the window during a run stops it before the next image. If the run had reached the images, the discount and `codes.csv` are complete; if it had not, check the discount in the Shopify admin.
+Leaving the screen or closing the window during a run asks first: _Save_ waits for the run to finish, _Don't save_ stops it before the next image, _Cancel_ stays. If a stopped run had reached the images, the discount and the codes file are complete; if it had not, check the discount in the Shopify admin.
 
 Two Shopify pitfalls from the old app:
 

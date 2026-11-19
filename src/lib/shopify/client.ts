@@ -41,6 +41,19 @@ export interface ShopifyAppDetails {
   clientSecret: string;
 }
 
+// WARNING: the same words as `read_graphql_response` in src-tauri/src/shopify/graphql.rs. A
+// Rust command can only reject with a sentence, so this prefix is how the page tells a GraphQL
+// error from a lost connection. Change both together.
+const GRAPHQL_ERROR_PREFIX = "Shopify GraphQL error:";
+
+/**
+ * True when Shopify answered the call and refused it with GraphQL errors. False for every
+ * failure that leaves the outcome unknown: no answer, a timeout, an HTTP error.
+ */
+export function isGraphqlError(error: unknown): boolean {
+  return errorText(error).startsWith(GRAPHQL_ERROR_PREFIX);
+}
+
 /** A Rust command rejects with a plain sentence; anything else gets a fixed one. */
 export function errorText(error: unknown): string {
   if (error instanceof Error) return error.message;

@@ -9,6 +9,8 @@ const READY: GenerateInputs = {
   connected: true,
   appliesTo: "all",
   pickedCollectionCount: 0,
+  startDate: "2026-11-19",
+  endDate: "2026-12-19",
 };
 
 describe("checkCanGenerate", () => {
@@ -83,6 +85,34 @@ describe("checkCanGenerate", () => {
     ).toEqual({ canGenerate: true });
     expect(checkCanGenerate({ ...READY, appliesTo: "all", pickedCollectionCount: 0 })).toEqual({
       canGenerate: true,
+    });
+  });
+
+  it("asks for a start date and an end date", () => {
+    expect(checkCanGenerate({ ...READY, startDate: "" })).toEqual({
+      canGenerate: false,
+      reason: "set a start date",
+    });
+    expect(checkCanGenerate({ ...READY, endDate: "" })).toEqual({
+      canGenerate: false,
+      reason: "set an end date",
+    });
+  });
+
+  it("blocks an end date before the start date, and allows the same day", () => {
+    expect(checkCanGenerate({ ...READY, startDate: "2026-12-01", endDate: "2026-11-30" })).toEqual({
+      canGenerate: false,
+      reason: "end date is before the start date",
+    });
+    expect(checkCanGenerate({ ...READY, startDate: "2026-12-01", endDate: "2026-12-01" })).toEqual({
+      canGenerate: true,
+    });
+  });
+
+  it("asks for the collections before the dates", () => {
+    expect(checkCanGenerate({ ...READY, appliesTo: "collection", startDate: "" })).toEqual({
+      canGenerate: false,
+      reason: "discount applies to collections but none is picked",
     });
   });
 

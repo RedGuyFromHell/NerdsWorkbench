@@ -9,6 +9,7 @@ import { Select } from "../../ui/Select";
 import type { CollectionsState } from "./useCollections";
 import {
   MINIMUM_SUBTOTAL_RANGE,
+  PERCENTAGE_DECIMALS,
   PERCENTAGE_RANGE,
   USAGE_LIMIT_RANGE,
   type VoucherSettings,
@@ -126,6 +127,7 @@ export function DiscountSection({
       <div className="voucher-pair">
         <NumberField
           label="Percentage"
+          decimals={PERCENTAGE_DECIMALS}
           hint="%"
           value={settings.percentage}
           onChange={(percentage) => onChange({ percentage })}
@@ -157,6 +159,7 @@ export function DiscountSection({
         />
         <NumberField
           label="Usage Limit"
+          integer
           hint="0 = unlimited"
           value={settings.usageLimit}
           onChange={(usageLimit) => onChange({ usageLimit })}

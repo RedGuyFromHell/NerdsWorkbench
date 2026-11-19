@@ -70,6 +70,7 @@ function VisualSection({
       <div className="voucher-triple">
         <NumberField
           label="Font Size"
+          integer
           hint="px"
           value={settings.fontSizePx}
           onChange={(fontSizePx) => onChange({ fontSizePx })}
@@ -77,6 +78,7 @@ function VisualSection({
         />
         <NumberField
           label="Letter Spacing"
+          integer
           hint="px"
           value={settings.letterSpacingPx}
           onChange={(letterSpacingPx) => onChange({ letterSpacingPx })}
@@ -84,6 +86,7 @@ function VisualSection({
         />
         <NumberField
           label="Outline"
+          integer
           hint="px"
           value={settings.outlineThicknessPx}
           onChange={(outlineThicknessPx) => onChange({ outlineThicknessPx })}
@@ -123,6 +126,7 @@ function CodeSection({
         />
         <NumberField
           label="No. of Vouchers"
+          integer
           step={10}
           value={settings.voucherCount}
           onChange={(voucherCount) => onChange({ voucherCount })}
@@ -132,6 +136,7 @@ function CodeSection({
       <div className="voucher-pair">
         <NumberField
           label="Random Characters"
+          integer
           hint="count"
           value={settings.randomLength}
           onChange={(randomLength) => onChange({ randomLength })}

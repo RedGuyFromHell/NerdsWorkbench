@@ -175,7 +175,8 @@ pub fn import_old_config(
 
     move_secrets_out(&old, current.as_ref(), secrets).map_err(|error| {
         format!(
-            "Cannot move the old Shopify secrets to the Credential Manager, so the old              config file was left as it is: {error}"
+            "Cannot move the old Shopify secrets to the Credential Manager, so the old \
+             config file was left as it is: {error}"
         )
     })?;
     old.remove(OLD_TOKEN_KEY);
@@ -222,7 +223,8 @@ fn move_secrets_out(
         }
         if !takes_old_secret(entry, old, current, secrets)? {
             log::warn!(
-                "the old config's {entry} was dropped, not stored: this app holds its own, or                  the old one is for another store"
+                "the old config's {entry} was dropped, not stored: this app holds its own, or \
+                 the old one is for another store"
             );
             continue;
         }

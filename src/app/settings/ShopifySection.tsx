@@ -12,7 +12,8 @@ type Activity = "connecting" | "disconnecting";
 
 const CONNECTED_MESSAGE = "Connected. The token is stored in Windows Credential Manager.";
 const DISCONNECTED_MESSAGE =
-  "Disconnected. The token and the client secret were removed from Windows Credential Manager.";
+  "Disconnected. The token and the client secret were removed from this PC only. " +
+  "The token stays valid on Shopify until the app is uninstalled in the Shopify admin.";
 
 export function ShopifySection() {
   const { status, error } = useShopifyStatus();

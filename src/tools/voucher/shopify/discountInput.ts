@@ -41,6 +41,7 @@ export interface DiscountCodeBasicInput {
 
 const COLLECTION_GID_PREFIX = "gid://shopify/Collection/";
 const GID_SCHEME = "gid://";
+const NO_COLLECTION_PICKED = "A discount for specific collections needs at least one collection.";
 const TITLE_PREFIX = "Workbench";
 const TITLE_SEPARATOR = " — ";
 // Everything but these is dropped from the prefix before it goes in a discount title.
@@ -76,16 +77,15 @@ export function buildDiscountInput(settings: DiscountSettings): DiscountCodeBasi
   return input;
 }
 
-// WARNING: "specific collections" with none picked falls through to all products, as the old
-// app did. The screen has to stop that before a discount is created.
+// WARNING: money. "Specific collections" with none picked throws. Falling through to all
+// products, as the old app did, would make a discount on the whole shop. The screen blocks it
+// first; this holds when something gets past the screen.
 function getDiscountedItems(
   settings: DiscountSettings,
 ): DiscountCodeBasicInput["customerGets"]["items"] {
-  const collectionGids = settings.collectionIds.map(toCollectionGid);
-  if (settings.appliesTo === "collection" && collectionGids.length > 0) {
-    return { collections: { add: collectionGids } };
-  }
-  return { all: true };
+  if (settings.appliesTo === "all") return { all: true };
+  if (settings.collectionIds.length === 0) throw new Error(NO_COLLECTION_PICKED);
+  return { collections: { add: settings.collectionIds.map(toCollectionGid) } };
 }
 
 function toCollectionGid(collectionId: string | number): string {

@@ -173,6 +173,31 @@
   overflow-wrap: anywhere;
 }
 
+.voucher-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.voucher-confirm__line {
+  display: flex;
+  gap: 12px;
+}
+
+.voucher-confirm__line dt {
+  flex: 0 0 96px;
+  color: var(--muted);
+}
+
+.voucher-confirm__line dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .voucher-collections {
   position: relative;
   display: flex;

@@ -13,7 +13,8 @@ import { defaultVoucherSettings, type VoucherSettings } from "./voucherSettings"
 
 const DISCOUNT_ID = "gid://shopify/DiscountCodeNode/1";
 const SAVE_FOLDER = "D:\\vouchers";
-const CODES_PATH = "D:\\vouchers\\codes.csv";
+const RUN_STARTED = new Date(2026, 10, 19, 14, 30, 5);
+const CODES_PATH = "D:\\vouchers\\codes-T-20261119-143005.csv";
 
 interface BulkAnswer {
   /** Poll answers for one batch, in order; the last one repeats. */
@@ -25,6 +26,14 @@ interface FakeOptions {
   createUserErrors?: { field: string[] | null; message: string }[];
   /** One entry per bulk-add call; a missing entry imports the whole batch on the first poll. */
   bulkAnswers?: BulkAnswer[];
+  /** The create call rejects with this, as a lost connection or a GraphQL error does. */
+  createFailure?: Error;
+  /** Shopify answers the create call with no discount and no user error. */
+  createGivesNoDiscount?: boolean;
+  /** The bulk-add call of this index (0 is the first batch) rejects with the error. */
+  addFailure?: { batchIndex: number; error: Error };
+  /** Every poll of this bulk creation id rejects with the error. */
+  pollFailure?: { id: string; error: Error };
   failWriteOf?: string;
   failImageOf?: string;
   abortAfterImages?: number;
@@ -46,10 +55,12 @@ function makeFakes(options: FakeOptions = {}) {
     if (query.includes("discountCodeBasicCreate")) {
       events.push("create");
       createInputs.push(variables.input as Record<string, unknown>);
+      if (options.createFailure) throw options.createFailure;
       const userErrors = options.createUserErrors ?? [];
+      const noDiscount = userErrors.length > 0 || options.createGivesNoDiscount === true;
       return {
         discountCodeBasicCreate: {
-          codeDiscountNode: userErrors.length > 0 ? null : { id: DISCOUNT_ID },
+          codeDiscountNode: noDiscount ? null : { id: DISCOUNT_ID },
           userErrors,
         },
       };
@@ -58,6 +69,7 @@ function makeFakes(options: FakeOptions = {}) {
       const codes = (variables.codes as { code: string }[]).map((entry) => entry.code);
       events.push(`add:${codes.length}`);
       expect(variables.discountId).toBe(DISCOUNT_ID);
+      if (options.addFailure?.batchIndex === batches.length) throw options.addFailure.error;
       const userErrors = options.bulkAnswers?.[batches.length]?.userErrors ?? [];
       batches.push(codes);
       return {
@@ -73,6 +85,7 @@ function makeFakes(options: FakeOptions = {}) {
       const pollIndex = pollCounts.get(id) ?? 0;
       pollCounts.set(id, pollIndex + 1);
       events.push(`poll:${id}`);
+      if (options.pollFailure?.id === id) throw options.pollFailure.error;
       const polls = options.bulkAnswers?.[batchIndex]?.polls ?? [
         { done: true, importedCount: batches[batchIndex]?.length ?? 0, failedCount: 0 },
       ];
@@ -81,8 +94,11 @@ function makeFakes(options: FakeOptions = {}) {
     throw new Error(`The fake does not know this query: ${query}`);
   };
 
+  // WHY: a throw inside the answer becomes a rejected call, as a real failed request is.
   const graphql: GraphqlCall = (query, variables, schema) =>
-    Promise.resolve(schema.parse(answer(query, variables)));
+    new Promise((resolve) => {
+      resolve(schema.parse(answer(query, variables)));
+    });
 
   const deps: GenerateRunDeps = {
     graphql,
@@ -105,6 +121,7 @@ function makeFakes(options: FakeOptions = {}) {
       sleeps.push(milliseconds);
       return Promise.resolve();
     },
+    now: () => RUN_STARTED,
     randomIndex: countingIndex(),
   };
   const readText = (path: string) => new TextDecoder().decode(files.get(path));
@@ -156,7 +173,7 @@ describe("runGenerate: the order of a good run", () => {
     const outcome = await runGenerate(request(), fakes.deps);
 
     expect(fakes.events).toEqual([
-      "write:D:\\vouchers\\codes.csv",
+      "write:D:\\vouchers\\codes-T-20261119-143005.csv",
       "create",
       "add:2",
       "poll:bulk-1",
@@ -203,7 +220,7 @@ describe("runGenerate: the order of a good run", () => {
     await runGenerate(request({ savePath: "/home/vouchers/", voucherCount: 1 }), fakes.deps);
 
     expect(fakes.events).toEqual([
-      "write:/home/vouchers/codes.csv",
+      "write:/home/vouchers/codes-T-20261119-143005.csv",
       "create",
       "render:T-AAAA",
       "write:/home/vouchers/T-AAAA.jpg",
@@ -226,7 +243,9 @@ describe("runGenerate: the order of a good run", () => {
 
     await runGenerate(request({ prefix: "..\\A/B:", voucherCount: 1 }), fakes.deps);
 
-    expect(fakes.readText(CODES_PATH)).toBe("code\n..\\A/B:AAAA\n");
+    expect(fakes.readText("D:\\vouchers\\codes-..-A-B--20261119-143005.csv")).toBe(
+      "code\n..\\A/B:AAAA\n",
+    );
     expect(fakes.events.at(-1)).toBe("write:D:\\vouchers\\-A-B-AAAA.jpg");
   });
 
@@ -235,7 +254,9 @@ describe("runGenerate: the order of a good run", () => {
 
     await runGenerate(request({ prefix: 'A,"B"', voucherCount: 1 }), fakes.deps);
 
-    expect(fakes.readText(CODES_PATH)).toBe('code\n"A,""B""AAAA"\n');
+    expect(fakes.readText("D:\\vouchers\\codes-A,-B--20261119-143005.csv")).toBe(
+      'code\n"A,""B""AAAA"\n',
+    );
   });
 });
 
@@ -341,7 +362,7 @@ describe("runGenerate: failures before the discount exists", () => {
 
     expect(failure.message).toBe("The disk is full. Nothing was created in Shopify.");
     expect(failure.codesPath).toBeNull();
-    expect(fakes.events).toEqual(["write:D:\\vouchers\\codes.csv"]);
+    expect(fakes.events).toEqual(["write:D:\\vouchers\\codes-T-20261119-143005.csv"]);
   });
 
   it("says the codes file is of no use when Shopify refuses the discount", async () => {
@@ -354,17 +375,85 @@ describe("runGenerate: failures before the discount exists", () => {
     expect(failure.message).toBe(
       "Discount creation failed: basicCodeDiscount.code: Code must be unique. " +
         "Nothing was created in Shopify. " +
-        "The codes in D:\\vouchers\\codes.csv do not exist there: delete that file.",
+        "The codes in D:\\vouchers\\codes-T-20261119-143005.csv do not exist there: delete that file.",
     );
     expect(failure.discountCreated).toBe(false);
     expect(failure.codesPath).toBe(CODES_PATH);
-    expect(fakes.events).toEqual(["write:D:\\vouchers\\codes.csv", "create"]);
+    expect(fakes.events).toEqual(["write:D:\\vouchers\\codes-T-20261119-143005.csv", "create"]);
+  });
+});
+
+describe("runGenerate: the create call fails without Shopify refusing it", () => {
+  const MAY_EXIST =
+    'The discount "Workbench — T-" may exist in Shopify all the same: ' +
+    "check Discounts in the Shopify admin before you delete " +
+    "D:\\vouchers\\codes-T-20261119-143005.csv.";
+
+  it("says the discount may exist when the connection drops during the create call", async () => {
+    const fakes = makeFakes({ createFailure: new Error("The request to Shopify timed out.") });
+
+    const failure = await failureOf(runGenerate(request(), fakes.deps));
+
+    expect(failure.message).toBe(`The request to Shopify timed out. ${MAY_EXIST}`);
+    expect(failure.message).not.toContain("Nothing was created");
+    expect(failure.discountCreated).toBe(false);
+    expect(failure.codesPath).toBe(CODES_PATH);
+    expect(fakes.events).toEqual([`write:${CODES_PATH}`, "create"]);
+  });
+
+  it("says the same for a server error", async () => {
+    const fakes = makeFakes({ createFailure: new Error("Shopify answered HTTP 502") });
+
+    const failure = await failureOf(runGenerate(request(), fakes.deps));
+
+    expect(failure.message).toBe(`Shopify answered HTTP 502. ${MAY_EXIST}`);
+  });
+
+  it("says the same when Shopify answers with no discount and no user error", async () => {
+    const fakes = makeFakes({ createGivesNoDiscount: true });
+
+    const failure = await failureOf(runGenerate(request(), fakes.deps));
+
+    expect(failure.message).toBe(
+      `Discount creation failed: Shopify returned no discount. ${MAY_EXIST}`,
+    );
+  });
+
+  it("still says nothing was created for a GraphQL error", async () => {
+    const fakes = makeFakes({
+      createFailure: new Error("Shopify GraphQL error: Access denied for discountCodeBasicCreate"),
+    });
+
+    const failure = await failureOf(runGenerate(request(), fakes.deps));
+
+    expect(failure.message).toBe(
+      "Shopify GraphQL error: Access denied for discountCodeBasicCreate. " +
+        "Nothing was created in Shopify. " +
+        "The codes in D:\\vouchers\\codes-T-20261119-143005.csv do not exist there: delete that file.",
+    );
+  });
+});
+
+describe("runGenerate: a collection discount with no collection", () => {
+  // WARNING: this is money. Such a discount would be built as a discount on every product.
+  it("stops before the codes file and before any Shopify call", async () => {
+    const fakes = makeFakes();
+
+    const failure = await failureOf(
+      runGenerate(request({ appliesTo: "collection", collectionIds: [] }), fakes.deps),
+    );
+
+    expect(failure.message).toBe(
+      "A discount for specific collections needs at least one collection. " +
+        "Nothing was created in Shopify.",
+    );
+    expect(fakes.events).toEqual([]);
   });
 });
 
 describe("runGenerate: failures after the discount exists", () => {
   const AFTER_THE_COUNT =
-    "Every code is listed in D:\\vouchers\\codes.csv. " +
+    "Every code is listed in D:\\vouchers\\codes-T-20261119-143005.csv. " +
     "Delete the discount in Shopify admin before you generate again.";
 
   it("names the codes that made it when Shopify refuses part of a batch", async () => {
@@ -413,6 +502,34 @@ describe("runGenerate: failures after the discount exists", () => {
         AFTER_THE_COUNT,
     );
     expect(fakes.sleeps).toHaveLength(120);
+  });
+
+  it("says 'at least' when the connection drops while a batch is being sent", async () => {
+    const fakes = makeFakes({
+      addFailure: { batchIndex: 1, error: new Error("The request to Shopify timed out.") },
+    });
+
+    const failure = await failureOf(runGenerate(request({ voucherCount: 600 }), fakes.deps));
+
+    expect(failure.message).toBe(
+      "The request to Shopify timed out. " +
+        'The discount "Workbench — T-" exists in Shopify with at least 251 of 600 codes. ' +
+        AFTER_THE_COUNT,
+    );
+  });
+
+  it("says 'at least' when a poll fails while Shopify is still adding the batch", async () => {
+    const fakes = makeFakes({
+      pollFailure: { id: "bulk-2", error: new Error("Shopify GraphQL error: Throttled") },
+    });
+
+    const failure = await failureOf(runGenerate(request({ voucherCount: 600 }), fakes.deps));
+
+    expect(failure.message).toBe(
+      "Shopify GraphQL error: Throttled. " +
+        'The discount "Workbench — T-" exists in Shopify with at least 251 of 600 codes. ' +
+        AFTER_THE_COUNT,
+    );
   });
 
   it("names the images written when one cannot be saved", async () => {

@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { FieldFrame } from "./Field";
-import { clamp, clampedNumber, inRangeNumber } from "./numberInput";
+import { clamp, inRangeNumber, settledNumber } from "./numberInput";
 
 interface NumberFieldProps {
   label: string;
@@ -9,10 +9,14 @@ interface NumberFieldProps {
   min?: number;
   max?: number;
   step?: number;
+  /** Reports whole numbers only: "7.6" is reported as 8. */
+  integer?: boolean;
+  /** The decimal places a reported number is rounded to. Unset: as typed. `integer` wins. */
+  decimals?: number;
   hint?: string;
 }
 
-/** A number input with chunky up and down steppers. Typing is free: a number inside the range is reported as it is typed, the rest is clamped when typing ends. */
+/** A number input with chunky up and down steppers. Typing is free: a number inside the range is reported as it is typed; text outside it goes back to the last valid value when typing ends. */
 export function NumberField({
   label,
   value,
@@ -20,20 +24,27 @@ export function NumberField({
   min = -Infinity,
   max = Infinity,
   step = 1,
+  integer = false,
+  decimals,
   hint,
 }: NumberFieldProps) {
   const id = useId();
   // The text being typed. It can be "" or "-" while the user types, which is not a number yet.
   const [draft, setDraft] = useState(String(value));
+  const places = integer ? 0 : decimals;
 
+  // WHY: the draft stays while it still reads as the value ("12,5" or "7.6" being typed), and
+  // follows the value when that changes from outside.
   useEffect(() => {
-    setDraft((current) => (Number(current) === value ? current : String(value)));
-  }, [value]);
+    setDraft((current) =>
+      inRangeNumber(current, min, max, places) === value ? current : String(value),
+    );
+  }, [value, min, max, places]);
 
   function finishTyping() {
-    const clamped = clampedNumber(draft, min, max);
-    if (clamped !== null) onChange(clamped);
-    setDraft(String(clamped ?? value));
+    const settled = settledNumber(draft, value, { min, max, decimals: places });
+    if (settled !== value) onChange(settled);
+    setDraft(String(settled));
   }
 
   function stepBy(direction: 1 | -1) {
@@ -53,7 +64,7 @@ export function NumberField({
           value={draft}
           onChange={(event) => {
             setDraft(event.target.value);
-            const typed = inRangeNumber(event.target.value, min, max);
+            const typed = inRangeNumber(event.target.value, min, max, places);
             if (typed !== null) onChange(typed);
           }}
           onKeyDown={(event) => {

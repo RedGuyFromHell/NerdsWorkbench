@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getOutputFile, getOutputFileName } from "./outputFile";
+import { getOutputFile, getCodesFileName, getOutputFileName } from "./outputFile";
 
 describe("getOutputFile", () => {
   it("gives JPG at quality 0.95 for a .jpg template", () => {
@@ -61,5 +61,32 @@ describe("getOutputFileName", () => {
     expect(getOutputFileName("SUMMER-AB12CD34", getOutputFile("voucher.webp"))).toBe(
       "SUMMER-AB12CD34.png",
     );
+  });
+});
+
+describe("getCodesFileName", () => {
+  const AFTERNOON = new Date(2026, 10, 19, 14, 30, 5);
+
+  it("names the prefix without its trailing dash and the local time to the second", () => {
+    expect(getCodesFileName("SUMMER-", AFTERNOON)).toBe("codes-SUMMER-20261119-143005.csv");
+    expect(getCodesFileName("VIP", AFTERNOON)).toBe("codes-VIP-20261119-143005.csv");
+  });
+
+  it("pads the month, the day and the time", () => {
+    expect(getCodesFileName("A-", new Date(2027, 0, 2, 3, 4, 5))).toBe(
+      "codes-A-20270102-030405.csv",
+    );
+  });
+
+  it("gives two runs of the same prefix a second apart two names", () => {
+    const first = getCodesFileName("SUMMER-", new Date(2026, 10, 19, 14, 30, 5));
+    const second = getCodesFileName("SUMMER-", new Date(2026, 10, 19, 14, 30, 6));
+
+    expect(second).toBe("codes-SUMMER-20261119-143006.csv");
+    expect(second).not.toBe(first);
+  });
+
+  it("makes a prefix safe for a file name", () => {
+    expect(getCodesFileName("..\\A/B:", AFTERNOON)).toBe("codes-..-A-B--20261119-143005.csv");
   });
 });

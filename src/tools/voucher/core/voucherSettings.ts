@@ -36,6 +36,7 @@ export const FONT_SIZE_RANGE = { min: 8, max: 400 };
 export const LETTER_SPACING_RANGE = { min: -10, max: 40 };
 export const OUTLINE_RANGE = { min: 0, max: 20 };
 export const PERCENTAGE_RANGE = { min: 1, max: 100 };
+export const PERCENTAGE_DECIMALS = 2;
 export const MINIMUM_SUBTOTAL_RANGE = { min: 0, max: 999999 };
 export const USAGE_LIMIT_RANGE = { min: 0, max: 999999 };
 export const VOUCHER_COUNT_RANGE = { min: 1, max: 100000 };

@@ -27,6 +27,8 @@ function sleep(milliseconds: number): Promise<void> {
 export function useGenerateRun(onError: (message: string) => void) {
   const [state, setState] = useState<GenerateState>(IDLE);
   const abortRef = useRef<AbortController | null>(null);
+  /** The run in flight; it never rejects. Null between runs. */
+  const runRef = useRef<Promise<void> | null>(null);
   const doneTimerRef = useRef<number | undefined>(undefined);
 
   // WHY: the tool only unmounts when the window goes. A run still going then stops before its
@@ -39,9 +41,8 @@ export function useGenerateRun(onError: (message: string) => void) {
     [],
   );
 
-  const start = useCallback(
+  const run = useCallback(
     async (settings: VoucherSettings, look: VoucherLook) => {
-      if (abortRef.current !== null) return;
       const abort = new AbortController();
       abortRef.current = abort;
       window.clearTimeout(doneTimerRef.current);
@@ -57,6 +58,7 @@ export function useGenerateRun(onError: (message: string) => void) {
             onProgress: (progress) => setState({ kind: "generating", progress }),
             signal: abort.signal,
             sleep,
+            now: () => new Date(),
           },
         );
         if (outcome.aborted) return;
@@ -67,10 +69,26 @@ export function useGenerateRun(onError: (message: string) => void) {
         onError(errorText(error));
       } finally {
         abortRef.current = null;
+        runRef.current = null;
       }
     },
     [onError],
   );
 
-  return { state, start };
+  /** Starts a run, unless one is already going. */
+  const start = useCallback(
+    (settings: VoucherSettings, look: VoucherLook) => {
+      if (runRef.current !== null) return;
+      runRef.current = run(settings, look);
+    },
+    [run],
+  );
+
+  /** The shell's `save()` for a run in flight: resolves true once the run has ended, however it ended (a failure shows its own message). */
+  const waitForRun = useCallback(async () => {
+    await runRef.current;
+    return true;
+  }, []);
+
+  return { state, start, waitForRun };
 }

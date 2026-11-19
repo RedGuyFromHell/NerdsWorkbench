@@ -3,13 +3,17 @@
 // Everything outside the process (Shopify, the disk, the canvas, the clock) comes in as a
 // parameter, so the tests run the real order against stand-ins.
 import { z } from "zod";
-import { errorText } from "../../../lib/shopify/client";
+import { errorText, isGraphqlError } from "../../../lib/shopify/client";
 import { safeFileName } from "../../../lib/files";
 import { planCodeBatches } from "../shopify/codeBatches";
-import { buildDiscountInput, buildDiscountTitle } from "../shopify/discountInput";
+import {
+  buildDiscountInput,
+  buildDiscountTitle,
+  type DiscountCodeBasicInput,
+} from "../shopify/discountInput";
 import type { GraphqlCall } from "../shopify/listCollections";
 import { generateCodes, type RandomIndex } from "./codeGen";
-import { getOutputFileName, type OutputFile } from "./outputFile";
+import { getCodesFileName, getOutputFileName, type OutputFile } from "./outputFile";
 import type { VoucherSettings } from "./voucherSettings";
 
 export type GenerateProgress =
@@ -34,6 +38,8 @@ export interface GenerateRunDeps {
   /** Read between two images only: the Shopify part is never left half done on purpose. */
   signal: AbortSignal;
   sleep(milliseconds: number): Promise<void>;
+  /** The clock: the codes file is named after the moment the run starts. */
+  now(): Date;
   /** For the tests; the default is the system's secure generator. */
   randomIndex?: RandomIndex;
 }
@@ -67,14 +73,15 @@ interface RunState {
   codesPath: string | null;
   /** Null until the discount exists in Shopify. */
   discountTitle: string | null;
+  /** Set when the create call failed without Shopify refusing it: the discount may exist. */
+  unconfirmedDiscountTitle: string | null;
   codesInShopify: number;
-  /** False after a batch Shopify had not finished: more codes may have landed since the last look. */
+  /** False while a batch is on its way or unfinished: more codes may have landed than were counted. */
   codesCountIsExact: boolean;
   /** Null until the image stage starts. */
   imagesWritten: number | null;
 }
 
-const CODES_FILE_NAME = "codes.csv";
 const CODES_CSV_HEADER = "code";
 const DAY_START_UTC = "T00:00:00Z";
 const DAY_END_UTC = "T23:59:59Z";
@@ -91,6 +98,7 @@ export async function runGenerate(
     codeCount: request.settings.voucherCount,
     codesPath: null,
     discountTitle: null,
+    unconfirmedDiscountTitle: null,
     codesInShopify: 0,
     codesCountIsExact: true,
     imagesWritten: null,
@@ -118,16 +126,20 @@ async function runStages(
     deps.randomIndex,
   );
   const { firstCode, remainingBatches } = planCodeBatches(codes);
+  const discountTitle = buildDiscountTitle(settings.prefix);
+  // WHY: built before anything is written or sent, so settings it refuses leave nothing behind.
+  const discountInput = planDiscountInput(settings, discountTitle, firstCode);
 
   // WHY: the file goes down before any Shopify call. Shopify cannot list a discount's codes in
   // one go, so codes that exist there and nowhere on disk would be lost.
-  const codesPath = pathInFolder(settings.savePath, CODES_FILE_NAME);
+  const codesPath = pathInFolder(settings.savePath, getCodesFileName(settings.prefix, deps.now()));
   await deps.writeFile(codesPath, new TextEncoder().encode(formatCodesCsv(codes)));
   state.codesPath = codesPath;
 
   deps.onProgress({ stage: "discount" });
-  const discountTitle = buildDiscountTitle(settings.prefix);
-  const discountId = await createDiscount(deps.graphql, settings, discountTitle, firstCode);
+  const discountId = await unlessRefused(createDiscount(deps.graphql, discountInput), () => {
+    state.unconfirmedDiscountTitle = discountTitle;
+  });
   state.discountTitle = discountTitle;
   state.codesInShopify = 1;
   await addRemainingCodes(discountId, remainingBatches, deps, state);
@@ -223,22 +235,44 @@ const bulkCreationSchema = z.object({
 
 type BulkCreation = z.infer<typeof bulkCreationSchema>["discountRedeemCodeBulkCreation"];
 
+/** Shopify read the mutation and said no in `userErrors`: it changed nothing. */
+class UserErrorsRefusal extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "UserErrorsRefusal";
+  }
+}
+
 function throwOnUserErrors(action: string, userErrors: z.infer<typeof userErrorsSchema>): void {
   if (userErrors.length === 0) return;
   const reasons = userErrors.map(({ field, message }) =>
     field && field.length > 0 ? `${field.join(".")}: ${message}` : message,
   );
-  throw new Error(`${action} failed: ${reasons.join("; ")}`);
+  throw new UserErrorsRefusal(`${action} failed: ${reasons.join("; ")}`);
 }
 
-/** Creates the discount with its first code and returns the discount's id. */
-async function createDiscount(
-  graphql: GraphqlCall,
+/**
+ * Awaits a mutation. When it fails any other way than Shopify refusing it (user errors or
+ * GraphQL errors), `markUnknown` runs before the error goes on.
+ * WHY: a lost connection, a timeout, a 5xx or an answer that cannot be read does not say whether
+ * Shopify ran the mutation, so the failure message must not claim that it did not.
+ */
+async function unlessRefused<T>(mutation: Promise<T>, markUnknown: () => void): Promise<T> {
+  try {
+    return await mutation;
+  } catch (error) {
+    if (!(error instanceof UserErrorsRefusal) && !isGraphqlError(error)) markUnknown();
+    throw error;
+  }
+}
+
+/** Throws when the settings cannot make a discount (specific collections with none picked). */
+function planDiscountInput(
   settings: VoucherSettings,
   title: string,
   firstCode: string,
-): Promise<string> {
-  const input = buildDiscountInput({
+): DiscountCodeBasicInput {
+  return buildDiscountInput({
     title,
     firstCode,
     percentage: settings.percentage,
@@ -252,6 +286,13 @@ async function createDiscount(
     startsAt: `${settings.startDate}${DAY_START_UTC}`,
     endsAt: `${settings.endDate}${DAY_END_UTC}`,
   });
+}
+
+/** Creates the discount with its first code and returns the discount's id. */
+async function createDiscount(
+  graphql: GraphqlCall,
+  input: DiscountCodeBasicInput,
+): Promise<string> {
   const { discountCodeBasicCreate } = await graphql(
     CREATE_DISCOUNT_MUTATION,
     { input },
@@ -274,13 +315,21 @@ async function addRemainingCodes(
   deps.onProgress({ stage: "addingCodes", added: state.codesInShopify, total });
   for (const [index, batch] of batches.entries()) {
     const batchLabel = `batch ${index + 1} of ${batches.length}`;
-    const creation = await addCodeBatch(discountId, batch, deps);
+    // WARNING: the count is exact only between batches. It turns inexact before each one and
+    // exact again once Shopify says the batch is done, so a throw anywhere in between (a lost
+    // connection, a failed poll, the bounded wait) reports "at least N". A batch Shopify refused
+    // to start added nothing, so that one keeps the count exact.
+    const creationId = await unlessRefused(startCodeBatch(discountId, batch, deps.graphql), () => {
+      state.codesCountIsExact = false;
+    });
+    state.codesCountIsExact = false;
+    const creation = await followCodeBatch(creationId, deps);
     state.codesInShopify += creation.importedCount;
     if (!creation.done) {
-      state.codesCountIsExact = false;
       const waitSeconds = (BULK_ADD_MAX_POLLS * BULK_ADD_POLL_DELAY_MS) / 1000;
       throw new Error(`Shopify did not finish adding ${batchLabel} within ${waitSeconds} seconds.`);
     }
+    state.codesCountIsExact = true;
     if (creation.failedCount > 0) {
       throw new Error(
         `Shopify refused ${creation.failedCount} of the ${batch.length} codes in ${batchLabel}.`,
@@ -290,13 +339,13 @@ async function addRemainingCodes(
   }
 }
 
-/** Queues one batch and follows it. Returns the last state seen: `done` is false after the bounded wait ran out. */
-async function addCodeBatch(
+/** Queues one batch and returns the id of its bulk creation. */
+async function startCodeBatch(
   discountId: string,
   batch: readonly string[],
-  deps: GenerateRunDeps,
-): Promise<BulkCreation> {
-  const { discountRedeemCodeBulkAdd } = await deps.graphql(
+  graphql: GraphqlCall,
+): Promise<string> {
+  const { discountRedeemCodeBulkAdd } = await graphql(
     BULK_ADD_MUTATION,
     { discountId, codes: batch.map((code) => ({ code })) },
     bulkAddSchema,
@@ -305,8 +354,11 @@ async function addCodeBatch(
   if (discountRedeemCodeBulkAdd.bulkCreation === null) {
     throw new Error("Code creation failed: Shopify did not start the batch.");
   }
-  const { id } = discountRedeemCodeBulkAdd.bulkCreation;
+  return discountRedeemCodeBulkAdd.bulkCreation.id;
+}
 
+/** Follows a queued batch. Returns the last state seen: `done` is false after the bounded wait ran out. */
+async function followCodeBatch(id: string, deps: GenerateRunDeps): Promise<BulkCreation> {
   let creation: BulkCreation = { done: false, importedCount: 0, failedCount: 0 };
   for (let poll = 0; poll < BULK_ADD_MAX_POLLS && !creation.done; poll += 1) {
     await deps.sleep(BULK_ADD_POLL_DELAY_MS);
@@ -352,10 +404,16 @@ export function formatGenerateProgress(progress: GenerateProgress): string {
 }
 
 function describeFailure(cause: string, state: RunState): string {
-  const { codeCount, codesPath, discountTitle } = state;
+  const { codeCount, codesPath, discountTitle, unconfirmedDiscountTitle } = state;
   if (discountTitle === null || codesPath === null) {
     const nothingCreated = `${cause} Nothing was created in Shopify.`;
     if (codesPath === null) return nothingCreated;
+    if (unconfirmedDiscountTitle !== null) {
+      return (
+        `${cause} The discount "${unconfirmedDiscountTitle}" may exist in Shopify all the same: ` +
+        `check Discounts in the Shopify admin before you delete ${codesPath}.`
+      );
+    }
     return `${nothingCreated} The codes in ${codesPath} do not exist there: delete that file.`;
   }
   const atLeast = state.codesCountIsExact ? "" : "at least ";

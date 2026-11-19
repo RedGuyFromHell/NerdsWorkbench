@@ -81,11 +81,12 @@ describe("buildDiscountInput", () => {
     expect(input.customerGets.items).toStrictEqual({ all: true });
   });
 
-  it("falls back to all products when collections are chosen but none is picked", () => {
-    // The old app did this; the screen has to stop it before it reaches here.
-    const input = buildDiscountInput({ ...BASE, appliesTo: "collection", collectionIds: [] });
-
-    expect(input.customerGets.items).toStrictEqual({ all: true });
+  // WARNING: this is money. The old app fell back to all products here; the screen stops it
+  // first, and this refuses it again should it ever get past the screen.
+  it("refuses collections with none picked, so it can never become all products", () => {
+    expect(() =>
+      buildDiscountInput({ ...BASE, appliesTo: "collection", collectionIds: [] }),
+    ).toThrow("A discount for specific collections needs at least one collection.");
   });
 
   it("combines with product and shipping discounts, never another order discount", () => {

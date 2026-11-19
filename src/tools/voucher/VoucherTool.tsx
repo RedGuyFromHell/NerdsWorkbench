@@ -1,11 +1,11 @@
 // The Voucher Generator screen: the template with the code preview on the left, the three numbered
 // settings sections on the right. It holds the settings, the template and the code area; the
-// pieces draw and edit them. GENERATE! starts one run (`useGenerateRun`); its failure lands in the
-// same Dialog as every other error here.
+// pieces draw and edit them. GENERATE! asks first (`ConfirmRunDialog`), then starts one run
+// (`useGenerateRun`); its failure lands in the same Dialog as every other error here.
 //
-// Nothing on this screen is worth saving (the settings are not kept between runs, and a run writes
-// each file as it goes), so it never calls `setUnsavedWork` and the shell never asks about it. It
-// listens for no keys either.
+// The settings are not kept between runs, so nothing here is unsaved work, except a run in flight:
+// while one is generating, the shell is told (`setUnsavedWork`) and its Save waits for the run to
+// end. The screen listens for no keys.
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { pickFolder, pickOpenFile } from "../../lib/files";
 import { errorText, SHOPIFY_SETTINGS_SECTION } from "../../lib/shopify/client";
@@ -13,6 +13,7 @@ import { useShopifyStatus } from "../../lib/shopify/useShopifyStatus";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import type { ToolContext } from "../types";
+import { ConfirmRunDialog } from "./ConfirmRunDialog";
 import { generateCodes } from "./core/codeGen";
 import { checkCanGenerate } from "./core/generateGuard";
 import { formatPreviewStatus } from "./core/previewStatus";
@@ -43,12 +44,13 @@ function makeSample(prefix: string, length: number, numbersOnly: boolean): strin
   return generateCodes({ prefix, length, count: 1, numbersOnly })[0] ?? prefix;
 }
 
-export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
+export default function VoucherTool({ setStatus, setUnsavedWork, openSettings }: ToolContext) {
   const [settings, setSettings] = useState(() => defaultVoucherSettings(new Date()));
   const [template, setTemplate] = useState<VoucherTemplate | null>(null);
   const [selection, setSelection] = useState<Rect | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [dropping, setDropping] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const templateRef = useRef<VoucherTemplate | null>(null);
 
   const shopify = useShopifyStatus();
@@ -57,6 +59,15 @@ export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
   const fontFamilies = useFontFamilies(setErrorMessage);
   const generation = useGenerateRun(setErrorMessage);
   const generating = generation.state.kind === "generating";
+  const { waitForRun } = generation;
+
+  // WHY: leaving or closing mid-run would stop it before its last image. The shell asks first,
+  // and its Save waits until every image is written.
+  useEffect(() => {
+    if (!generating) return;
+    setUnsavedWork({ save: waitForRun });
+    return () => setUnsavedWork(null);
+  }, [generating, setUnsavedWork, waitForRun]);
 
   const change = useCallback((patch: Partial<VoucherSettings>) => {
     setSettings((current) => ({ ...current, ...patch }));
@@ -172,13 +183,16 @@ export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
     connected,
     appliesTo: settings.appliesTo,
     pickedCollectionCount: settings.collectionIds.length,
+    startDate: settings.startDate,
+    endDate: settings.endDate,
   });
 
   function startGenerate() {
+    setConfirming(false);
     if (!generate.canGenerate || template === null || selection === null) return;
     const bounds = { x: 0, y: 0, width: template.width, height: template.height };
     const area = toImagePixels(selection, bounds, template);
-    void generation.start(settings, { template, area, style });
+    generation.start(settings, { template, area, style });
   }
 
   return (
@@ -209,8 +223,15 @@ export default function VoucherTool({ setStatus, openSettings }: ToolContext) {
         onOpenSettings={() => openSettings(SHOPIFY_SETTINGS_SECTION)}
         generate={generate}
         generation={generation.state}
-        onGenerate={startGenerate}
+        onGenerate={() => setConfirming(true)}
       />
+      {confirming ? (
+        <ConfirmRunDialog
+          settings={settings}
+          onConfirm={startGenerate}
+          onCancel={() => setConfirming(false)}
+        />
+      ) : null}
       {errorMessage ? (
         <Dialog
           title="Voucher Generator"
